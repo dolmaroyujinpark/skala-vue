@@ -1,65 +1,68 @@
 /* Ubuntu Condensed — npm 으로 설치한 self-host 폰트 (CDN 없이 오프라인 동작).
    @import 는 반드시 다른 규칙보다 위에 와야 한다. */
 @import '@fontsource/ubuntu-condensed/latin-400.css';
+/* Ubuntu Condensed 에는 한글 글리프가 없다. 시스템 고딕으로 폴백하면 톤이 깨져서,
+   같은 산업/테크 계열인 IBM Plex Sans KR 을 한글 짝으로 붙였다. (self-host, CDN 불필요) */
+@import '@fontsource/ibm-plex-sans-kr/korean-300.css';
+@import '@fontsource/ibm-plex-sans-kr/korean-400.css';
 
 /* ════════════════════════════════════════════════════════════
-   Weather Mockup — Mono / Nothing 스타일
+   Weather Dashboard
    레퍼런스: Mono Weather UI Kit (Community)
              Nothing Weather App Icons (Community)
+   원본 목업의 규칙을 그대로 가져왔다.
+     · 배경은 순검정, 그라데이션 / 그림자 없음
+     · 구분은 오직 1px 헤어라인
+     · 캡션은 작게 · 대문자 · 자간 넓게
+     · 숫자는 크고 얇게
+   웹으로 옮기면서 바꾼 건 "폭"뿐이다.
    ════════════════════════════════════════════════════════════ */
 
 /* ────────────────────────────────────────────────────────────
    [0] 페이지 리셋
-   main.css 의 기본 스캐폴딩이 body 를 flex 중앙정렬 하고
-   #app 을 "grid-template-columns: 1fr 1fr" 2단 그리드로 잡아버린다.
-   모바일 화면은 전체 폭을 써야 하므로 그 껍데기를 해제한다.
-   (이 파일은 MyWeatherMockup.vue 에서만 import 하므로
-    기존 실습 화면으로 되돌리면 이 리셋도 함께 사라진다.)
+   ⚠️ 예전엔 여기서 `#app:has(.wx)` 로 main.css 의 스캐폴딩을 덮어썼는데
+      선택자 우선순위 싸움에서 져서 앱이 608px 칸에 갇혔었다.
+      지금은 main.css 쪽 원인을 아예 제거했으므로 덮어쓸 것이 없다.
+   body 배경만 맞춰 두면 스크롤 바운스에서 흰 여백이 비치지 않는다.
    ──────────────────────────────────────────────────────────── */
-body:has(.wx) {
-  display: block;
+body {
   margin: 0;
   background: #000;
 }
 
-#app:has(.wx) {
-  display: block;
-  max-width: none;
-  padding: 0;
-}
-
 /* ────────────────────────────────────────────────────────────
-   [1] 테마 토큰
-   .wx--dark / .wx--light 두 벌만 관리하면 전체 색이 뒤집힌다.
+   [1] 테마 토큰 — 두 벌만 관리하면 전체 색이 뒤집힌다.
    ──────────────────────────────────────────────────────────── */
 .wx--dark {
   --bg: #000000;
   --fg: #ffffff;
   --dim: #8a8a8a;
-  --dimmer: #5c5c5c;
+  --dimmer: #4f4f4f;
   --line: #1c1c1c;
-  --hover: #0e0e0e;
+  --line-hi: #3a3a3a;
+  --hover: #0d0d0d;
 }
 
 .wx--light {
   --bg: #ffffff;
   --fg: #000000;
   --dim: #6a6a6a;
-  --dimmer: #9b9b9b;
+  --dimmer: #a8a8a8;
   --line: #e8e8e8;
-  --hover: #f5f5f5;
+  --line-hi: #c2c2c2;
+  --hover: #f6f6f6;
 }
 
 /* ────────────────────────────────────────────────────────────
-   [2] 레이아웃 — 모바일 웹 (데스크톱에서는 폰 프레임으로 중앙 정렬)
+   [2] 무대
    ──────────────────────────────────────────────────────────── */
 .wx {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg);
   color: var(--fg);
-  /* Ubuntu Condensed 에는 한글 글리프가 없어서, 한글은 뒤쪽 폰트로 자동 폴백된다. */
-  font-family: 'Ubuntu Condensed', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  /* 영문은 Ubuntu Condensed, 한글은 뒤쪽 IBM Plex Sans KR 로 자동 폴백된다. */
+  font-family: 'Ubuntu Condensed', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif;
   font-size: 15px;
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -68,462 +71,644 @@ body:has(.wx) {
     color 0.25s;
 }
 
-.wx-phone {
-  width: 100%;
-  max-width: 400px;
-  min-height: 100vh;
-  min-height: 100dvh;
-  margin: 0 auto;
-  padding: 40px 32px 48px;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-
-.wx-screen {
-  display: block;
-}
-
-/* 텍스트 기본값 초기화 (practice.css 의 전역 h1~h3 스타일 무력화) */
-.wx h1,
-.wx h2,
-.wx h3,
-.wx p {
-  margin: 0;
-  padding: 0;
-  border: none;
-  font-weight: 400;
-  color: inherit;
-}
-
-/* practice.css 의 전역 button 스타일 무력화 */
-.wx button {
-  margin: 0;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-}
-
 /* ────────────────────────────────────────────────────────────
-   [3] SPLASH
+   [3] 스플래시 — 원본 Splash 화면
    ──────────────────────────────────────────────────────────── */
+/* 원본 Splash 는 가운데 'Weather' 한 줄 + 화면 맨 아래 부제가 전부다.
+   원본이 375px 폰 기준이라 제목을 30px 로 고정하면 넓은 웹에서 글자만 점처럼 떠 보인다.
+   화면 폭을 따라가되 최소/최대를 묶어서, 폰에서는 원본 비율 그대로 두고
+   웹에서만 커지게 한다. (Ubuntu Condensed 는 폭이 좁은 서체라 자간도 조금 벌렸다.) */
 .wx-splash {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 88px);
-  min-height: calc(100dvh - 88px);
-  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 24px;
+  box-sizing: border-box;
+  animation: wx-in 0.6s ease;
 }
 
 .wx-splash-title {
-  font-size: 26px;
+  margin: 0;
+  font-size: clamp(32px, 5.5vw, 64px);
+  font-weight: 400;
   letter-spacing: 0.04em;
-  animation: wx-fade 0.9s ease both;
+  white-space: nowrap;
 }
 
 .wx-splash-sub {
   position: absolute;
-  bottom: 8px;
-  font-size: 11px;
+  bottom: clamp(28px, 5vh, 48px);
+  left: 0;
+  right: 0;
+  margin: 0;
   color: var(--dimmer);
-  letter-spacing: 0.06em;
+  font-size: clamp(12px, 1vw, 14px);
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
-@keyframes wx-fade {
+@keyframes wx-in {
   from {
     opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 
 /* ────────────────────────────────────────────────────────────
-   [4] 상단 바
+   [4] 셸 & 그리드
    ──────────────────────────────────────────────────────────── */
-.wx-topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 56px;
+.wx-shell {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 26px 24px 40px;
+  animation: wx-in 0.45s ease;
 }
 
-.wx-topbar-actions {
-  display: flex;
-  gap: 18px;
-  padding-top: 4px;
-}
-
-.wx-city {
-  font-size: 21px;
-  letter-spacing: 0.01em;
-}
-
-.wx-caption {
-  font-size: 10px;
-  color: var(--dimmer);
-  letter-spacing: 0.08em;
-}
-
-.wx-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--fg);
-  opacity: 0.85;
-  transition: opacity 0.15s;
-}
-
-.wx-icon-btn:hover {
-  opacity: 1;
-}
-
-/* 뒤로가기 형태의 내비게이션 바 (Locations / Settings) */
-.wx-navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 40px;
-}
-
-.wx-nav-back {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  color: var(--fg);
+.wx-grid {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
 /* ────────────────────────────────────────────────────────────
-   [5] HOME
+   [5] 패널 — 카드가 아니라 "구획". 헤어라인 하나로만 나눈다.
    ──────────────────────────────────────────────────────────── */
-.wx-sync {
-  text-align: center;
-  font-size: 10px;
-  color: var(--dimmer);
-  letter-spacing: 0.14em;
-  margin-bottom: 18px;
+.wx-panel {
+  box-sizing: border-box;
+  padding: 22px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 18px;
 }
 
-.wx-date {
-  text-align: center;
-  font-size: 15px;
+/* 작은 대문자 캡션 — 원본의 'Current Location' / 'Hourly Forecast' 스타일 */
+.wx-label {
+  display: block;
+  margin: 0 0 14px;
   color: var(--dim);
-  margin-bottom: 24px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ────────────────────────────────────────────────────────────
+   [6] 앱 바
+   ──────────────────────────────────────────────────────────── */
+.wx-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 0 4px;
+}
+
+.wx-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.wx-segment {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.wx-segment-btn {
+  padding: 5px 15px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wx-segment-btn:hover {
+  color: var(--fg);
+}
+
+.wx-segment-btn.is-on {
+  color: var(--bg);
+  background: var(--fg);
+}
+
+/* ────────────────────────────────────────────────────────────
+   [7] 히어로 — 원본 Home 화면을 그대로 세로로 세운 구획
+   ──────────────────────────────────────────────────────────── */
+.wx-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 34px 24px 28px;
+  text-align: center;
+}
+
+.wx-hero-city {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.wx-hero-head .wx-label {
+  margin: 6px 0 0;
+}
+
+.wx-hero-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wx-hero-icon {
+  margin: 30px 0 26px;
 }
 
 .wx-temp {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 4px;
-  margin-bottom: 18px;
+  margin: 0;
+  line-height: 1;
 }
 
 .wx-temp-num {
   font-size: 84px;
-  font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
 }
 
 .wx-temp-unit {
-  font-size: 26px;
-  font-weight: 400;
-  padding-top: 12px;
+  margin-top: 10px;
   color: var(--dim);
+  font-size: 26px;
+}
+
+.wx-condition {
+  margin: 14px 0 0;
+  font-size: 18px;
 }
 
 .wx-minmax {
   display: flex;
   justify-content: center;
-  gap: 36px;
+  gap: 22px;
+  margin: 8px 0 0;
+  color: var(--dim);
   font-size: 15px;
+}
+
+/* 25도 기준 라벨 — 채우지 않고 테두리로만 구분한다 */
+.wx-badge {
+  display: inline-block;
+  margin: 20px 0 0;
+  padding: 6px 14px;
   color: var(--dim);
-}
-
-.wx-hero-icon {
-  display: flex;
-  justify-content: center;
-  margin: 44px 0 28px;
-}
-
-.wx-condition {
-  text-align: center;
-  font-size: 17px;
-  color: var(--dim);
-}
-
-.wx-hint {
-  text-align: center;
-  font-size: 10px;
-  color: var(--dimmer);
+  font-size: 11px;
   letter-spacing: 0.16em;
-  margin-top: 8px;
+  text-transform: uppercase;
+  border: 1px solid var(--line-hi);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.wx-badge.is-hot {
+  color: var(--fg);
+  border-color: var(--fg);
 }
 
 .wx-suntimes {
   display: flex;
   justify-content: center;
-  gap: 44px;
-  margin-top: 44px;
+  gap: 28px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 26px;
   color: var(--dim);
 }
 
 .wx-suntime {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 14px;
 }
 
-/* 홈 ↔ 예보 페이지 인디케이터 */
-.wx-pager {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 56px;
-}
-
-.wx-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--dimmer);
-  opacity: 0.5;
-  transition: opacity 0.15s;
-}
-
-.wx-dot.is-on {
-  background: var(--fg);
-  opacity: 1;
-}
-
 /* ────────────────────────────────────────────────────────────
-   [6] FORECAST
+   [8] 우측 — 검색
    ──────────────────────────────────────────────────────────── */
-.wx-page-title {
-  font-size: 27px;
-  margin-bottom: 36px;
-}
-
-.wx-section-label {
-  font-size: 15px;
-  color: var(--dim);
-  margin-bottom: 20px;
-}
-
-/* 가로 스크롤 목록 — 스크롤바는 숨긴다 */
-.wx-scroller {
-  display: flex;
-  gap: 28px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  margin: 0 -32px 44px;
-  padding-left: 32px;
-  padding-right: 32px;
-  scrollbar-width: none;
-}
-
-.wx-scroller::-webkit-scrollbar {
-  display: none;
-}
-
-.wx-hour,
-.wx-day {
+.wx-side {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  flex: none;
+  gap: 16px;
 }
 
-.wx-hour-time {
-  font-size: 12px;
-  color: var(--dimmer);
-}
-
-.wx-hour-time.is-now {
-  color: var(--fg);
-}
-
-.wx-hour-temp {
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.wx-day-date {
-  font-size: 12px;
-  color: var(--fg);
-  white-space: nowrap;
-}
-
-.wx-day-temp {
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.wx-day-temp.is-dim {
-  color: var(--dimmer);
-  margin-top: -6px;
-}
-
-/* ────────────────────────────────────────────────────────────
-   [7] LOCATIONS
-   ──────────────────────────────────────────────────────────── */
-.wx-search {
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 12px;
-  padding: 10px 0;
-  font: inherit;
-  font-size: 14px;
-  color: var(--fg);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  outline: none;
-  box-shadow: none;
-}
-
-.wx-search::placeholder {
-  color: var(--dimmer);
-}
-
-.wx-search:focus {
-  border-bottom-color: var(--dim);
-  box-shadow: none;
-}
-
-.wx-city-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.wx-city-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.wx-city-row:hover {
-  background: var(--hover);
-}
-
-.wx-city-row.is-active .wx-city-name {
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-
-.wx-city-name {
-  font-size: 21px;
-}
-
-.wx-city-temp {
-  font-size: 15px;
-  color: var(--dim);
-}
-
-.wx-city-status {
+.wx-search-field {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid var(--line-hi);
+  transition: border-color 0.2s;
+}
+
+.wx-search-field:focus-within {
+  border-bottom-color: var(--fg);
+}
+
+.wx-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  color: var(--fg);
+  font: inherit;
+  font-size: 19px;
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.wx-search-input::placeholder {
+  color: var(--dimmer);
+}
+
+.wx-echo {
+  margin: 14px 0 0;
+  color: var(--dim);
   font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.wx-echo strong {
+  margin-left: 10px;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.wx-echo-empty {
+  margin-left: 10px;
   color: var(--dimmer);
 }
 
-.wx-tag {
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  color: var(--dimmer);
+/* ────────────────────────────────────────────────────────────
+   [9] 도시 카드
+   ──────────────────────────────────────────────────────────── */
+.wx-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
 }
 
-.wx-city-right {
+.wx-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.wx-card:hover {
+  background: var(--hover);
+}
+
+/* 선택된 카드는 테두리를 밝혀 상태바 문구와 짝을 맞춘다 */
+.wx-card.is-active {
+  border-color: var(--fg);
+}
+
+/* 닷매트릭스 원본은 아이콘마다 세로 비율이 다르다 (sun 49×49, cloud 58×37, rain 58×48).
+   그대로 두면 카드마다 아래 내용이 다른 높이에서 시작해 DETAILS 버튼 줄이 어긋난다.
+   아이콘 자리를 고정 높이로 잡고 그 안에서 세로 중앙 정렬한다. */
+.wx-card > .pixel-icon,
+.wx-cell > .pixel-icon {
   display: flex;
   align-items: center;
-  gap: 16px;
-  color: var(--fg);
+  justify-content: center;
 }
 
-.wx-remove {
-  color: var(--dimmer);
+.wx-card > .pixel-icon {
+  height: 46px;
 }
 
-.wx-remove:hover {
+.wx-cell > .pixel-icon {
+  height: 32px;
+}
+
+.wx-card-city {
+  margin: 18px 0 0;
+  font-size: 19px;
+  font-weight: 400;
+}
+
+.wx-card-temp {
+  margin: 6px 0 0;
+  font-size: 38px;
+  line-height: 1;
+}
+
+.wx-card-temp span {
+  margin-left: 2px;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+.wx-card-status {
+  margin: 6px 0 0;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.wx-card .wx-badge {
+  margin-top: 12px;
+  padding: 4px 12px;
+  font-size: 10px;
+}
+
+.wx-detail-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 9px 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wx-detail-btn:hover {
   color: var(--fg);
+  border-color: var(--fg);
+}
+
+.wx-card-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.wx-card:hover .wx-card-remove,
+.wx-card-remove:focus-visible {
+  opacity: 1;
 }
 
 .wx-empty {
-  padding: 32px 0;
+  margin: 0;
+  padding: 26px 4px;
+  color: var(--dim);
+  font-size: 14px;
   text-align: center;
-  font-size: 13px;
-  color: var(--dimmer);
-}
-
-.wx-statusbar {
-  margin-top: 32px;
-  font-size: 11px;
-  color: var(--dimmer);
-  letter-spacing: 0.06em;
 }
 
 /* ────────────────────────────────────────────────────────────
-   [8] SETTINGS
+   [10] 예보 스트립 — 원본 Forecast 화면
    ──────────────────────────────────────────────────────────── */
-.wx-setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.wx-forecasts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
-  width: 100%;
-  text-align: left;
-  padding: 14px 0;
+  margin-top: 16px;
+}
+
+.wx-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.wx-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px;
+  border-radius: 12px;
+  transition: background-color 0.2s;
+}
+
+.wx-cell:hover {
+  background: var(--hover);
+}
+
+.wx-cell-key {
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.wx-cell-key.is-now {
   color: var(--fg);
 }
 
-.wx-setting-title {
-  display: block;
-  font-size: 17px;
-  color: var(--dim);
+.wx-cell-val {
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.wx-setting-desc {
-  display: block;
-  font-size: 11px;
+.wx-cell-val i {
   color: var(--dimmer);
-}
-
-.wx-page-title + .wx-setting {
-  margin-top: -12px;
-}
-
-.wx-setting + .wx-page-title {
-  margin-top: 40px;
+  font-style: normal;
 }
 
 /* ────────────────────────────────────────────────────────────
-   [9] 좁은 화면 미세 조정
+   [11] 아이콘 버튼 / 상태바
    ──────────────────────────────────────────────────────────── */
-@media (max-width: 360px) {
-  .wx-phone {
-    padding: 32px 22px 40px;
+.wx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: var(--dim);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wx-icon-btn:hover {
+  color: var(--fg);
+  background: var(--hover);
+}
+
+.wx-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 15px 20px;
+  font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.wx-statusbar p {
+  margin: 0;
+}
+
+
+/* ────────────────────────────────────────────────────────────
+   [12] 좁은 화면 보정
+   ──────────────────────────────────────────────────────────── */
+/* 태블릿 (561~860px)
+   2단이 접히면서 히어로가 갑자기 넓은 상자가 된다.
+   그대로 세로 정렬을 두면 좌우가 텅 비므로, 이 구간에서만 가로로 눕힌다.
+     [ 도시명 ............................ ]
+     [ 아이콘 | 온도 · 상태 · 최저최고 · 배지 ]
+     [ 일출 ............................ 일몰 ] */
+@media (max-width: 860px) {
+  .wx-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wx-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'head head'
+      'icon figures'
+      'sun  sun';
+    align-items: center;
+    column-gap: 32px;
+    text-align: left;
+  }
+
+  .wx-hero-head {
+    grid-area: head;
+  }
+
+  .wx-hero-icon {
+    grid-area: icon;
+    margin: 26px 0;
+  }
+
+  .wx-hero-figures {
+    grid-area: figures;
+    align-items: flex-start;
+  }
+
+  .wx-temp,
+  .wx-minmax {
+    justify-content: flex-start;
+  }
+
+  .wx-suntimes {
+    grid-area: sun;
+    justify-content: space-between;
+    padding-top: 0;
+  }
+
+  /* 이 폭에서 예보를 2열로 두면 한 칸이 50px 남짓이라 날짜·온도가 잘린다 */
+  .wx-forecasts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 모바일 — 원본 목업이 원래 폰 화면이었으므로,
+   좁아지면 테두리를 걷어내 그때의 "여백만 있는 검은 화면"으로 되돌아간다. */
+@media (max-width: 560px) {
+  .wx-shell {
+    padding: 18px 16px 32px;
+  }
+
+  .wx-brand {
+    font-size: 17px;
+  }
+
+  /* 폰 폭에서는 태블릿용 가로 배치를 풀고 원본 폰 화면(세로 중앙)으로 되돌린다 */
+  .wx-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 26px 4px 22px;
+    text-align: center;
+    border: 0;
+  }
+
+  .wx-hero-icon {
+    margin: 24px 0 20px;
+  }
+
+  .wx-hero-figures {
+    align-items: center;
+  }
+
+  .wx-temp,
+  .wx-minmax {
+    justify-content: center;
+  }
+
+  .wx-suntimes {
+    justify-content: center;
+    padding-top: 26px;
   }
 
   .wx-temp-num {
-    font-size: 68px;
+    font-size: 72px;
+  }
+
+  .wx-search-panel,
+  .wx-forecasts .wx-panel {
+    padding: 18px 4px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .wx-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .wx-card {
+    padding: 20px 10px 16px;
+  }
+
+  .wx-forecasts {
+    grid-template-columns: 1fr;
+  }
+
+  .wx-statusbar {
+    padding: 13px 16px;
   }
 }
