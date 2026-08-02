@@ -5,6 +5,15 @@
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SKALA-VUE : 모던 웹 애플리케이션 개발 실습실</title>
+    <!-- 앱 CSS 는 JS 가 로드된 뒤에야 주입되므로, 그 전까지 흰 배경 + body 기본 여백이
+         테두리처럼 번쩍인다. 첫 페인트부터 검은 화면이 되도록 여기서 미리 깔아둔다. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>

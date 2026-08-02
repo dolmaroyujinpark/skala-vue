@@ -1,35 +1,19 @@
 @import './base.css';
 
+/* Vue 스타터 템플릿이 깔아두던 #app 스캐폴딩은 전부 걷어냈다.
+     #app { max-width: 1280px; padding: 2rem }
+     @media (min-width: 1024px) { body { display: flex } #app { grid-template-columns: 1fr 1fr } }
+   이 규칙들 때문에 날씨 앱이 2단 그리드의 왼쪽 칸에 갇혀서
+   1440px 화면에서도 565px 폭으로만 렌더링됐다.
+   실습 화면은 PracticeView.vue 로 빠졌고 자기 폭은 practice.css 에서 직접 잡으므로
+   더 이상 이 스캐폴딩을 쓰는 곳이 없다. */
+
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
   font-weight: normal;
 }
 
-a,
-.green {
+a {
+  color: inherit;
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
   transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
 }
