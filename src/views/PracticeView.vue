@@ -6,11 +6,11 @@
    이 뷰는 기본 화면에 절대 나타나지 않는다.
    확인이 필요하면 이 파일을 직접 열거나, App.vue 에서 잠깐 갈아끼운다.
    ════════════════════════════════════════════════════════════ */
-import StoreCounter from '@/components/practices/library/StoreCounter.vue'
-import AxiosWeather from '@/components/practices/library/AxiosWeather.vue'
-import AxiosJson from '@/components/practices/library/AxiosJson.vue'
-import ElementPlus from '@/components/practices/library/ElementPlus.vue'
-import EcmaScript from '@/components/practices/library/EcmaScript.vue'
+import StoreCounter from '@/components/course/practices/library/StoreCounter.vue'
+import AxiosWeather from '@/components/course/practices/library/AxiosWeather.vue'
+import AxiosJson from '@/components/course/practices/library/AxiosJson.vue'
+import ElementPlus from '@/components/course/practices/library/ElementPlus.vue'
+import EcmaScript from '@/components/course/practices/library/EcmaScript.vue'
 </script>
 
 <template>

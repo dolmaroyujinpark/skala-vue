@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue'
-import PixelIcon from './PixelIcon.vue'
-import MonoIcon from './MonoIcon.vue'
+import PixelIcon from './icons/PixelIcon.vue'
+import MonoIcon from './icons/MonoIcon.vue'
 
 /* ════════════════════════════════════════════════════════════
    [종합과제] 날씨 Mockup — 웹 대시보드
