@@ -33,23 +33,26 @@ body {
 /* ────────────────────────────────────────────────────────────
    [1] 테마 토큰 — 두 벌만 관리하면 전체 색이 뒤집힌다.
    ──────────────────────────────────────────────────────────── */
+/* --dim / --dimmer 는 WCAG AA(4.5:1) 를 넘도록 잡았다.
+   원래 --dimmer 는 다크 2.6:1 / 라이트 2.4:1 이라 일별 최저기온 같은
+   실제 데이터가 배경에 묻혀 읽히지 않았다. */
 .wx--dark {
   --bg: #000000;
   --fg: #ffffff;
-  --dim: #8a8a8a;
-  --dimmer: #4f4f4f;
-  --line: #1c1c1c;
-  --line-hi: #3a3a3a;
+  --dim: #a0a0a0; /* 8.2:1 */
+  --dimmer: #7a7a7a; /* 4.9:1 */
+  --line: #262626;
+  --line-hi: #4a4a4a;
   --hover: #0d0d0d;
 }
 
 .wx--light {
   --bg: #ffffff;
   --fg: #000000;
-  --dim: #6a6a6a;
-  --dimmer: #a8a8a8;
-  --line: #e8e8e8;
-  --line-hi: #c2c2c2;
+  --dim: #5c5c5c; /* 6.8:1 */
+  --dimmer: #767676; /* 4.5:1 */
+  --line: #dcdcdc;
+  --line-hi: #b0b0b0;
   --hover: #f6f6f6;
 }
 
@@ -63,9 +66,11 @@ body {
   color: var(--fg);
   /* 영문은 Ubuntu Condensed, 한글은 뒤쪽 IBM Plex Sans KR 로 자동 폴백된다. */
   font-family: 'Ubuntu Condensed', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
+  font-size: 16px;
+  /* 한글은 폴백 폰트(IBM Plex Sans KR)로 그려지는데 라틴보다 글자 높이가 커서
+     행간이 1.5 면 답답하다. 1.65 로 열어 두면 한/영 섞인 줄도 편하게 읽힌다. */
+  line-height: 1.65;
+  letter-spacing: 0.01em;
   transition:
     background-color 0.25s,
     color 0.25s;
@@ -156,9 +161,9 @@ body {
   display: block;
   margin: 0 0 14px;
   color: var(--dim);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
@@ -172,6 +177,15 @@ body {
   gap: 16px;
   margin-bottom: 18px;
   padding: 0 4px;
+}
+
+/* 단위 토글 + 테마 토글을 오른쪽에 나란히 세운다. 좁아지면 자연스럽게 줄바꿈. */
+.wx-appbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .wx-brand {
@@ -354,18 +368,20 @@ body {
   color: var(--dimmer);
 }
 
+/* "QUERY" 라벨. 넓은 자간 + 대문자는 라틴 캡션에만 어울리므로,
+   실제 한글 검색어가 들어가는 strong 에서는 아래처럼 전부 되돌린다. */
 .wx-echo {
   margin: 14px 0 0;
   color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  font-size: 12px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .wx-echo strong {
   margin-left: 10px;
   color: var(--fg);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -443,16 +459,19 @@ body {
   font-size: 15px;
 }
 
+/* 한글이 들어가는 자리(맑음·비·구름)라 라틴 캡션보다 한 단계 크게 잡는다.
+   한글은 같은 px 에서 라틴보다 작아 보이기 때문. */
 .wx-card-status {
   margin: 6px 0 0;
   color: var(--dim);
-  font-size: 14px;
+  font-size: 15px;
 }
 
+/* 카드 안 HOT / COOL 배지. 10px 은 대문자 + 넓은 자간과 겹쳐 읽기 힘들어 11px 로 올렸다. */
 .wx-card .wx-badge {
   margin-top: 12px;
-  padding: 4px 12px;
-  font-size: 10px;
+  padding: 5px 12px;
+  font-size: 11px;
 }
 
 .wx-detail-btn {
@@ -489,11 +508,12 @@ body {
   opacity: 1;
 }
 
+/* [2일차 요구사항 4-c] 검색 결과 없음 안내. 한글 문장이라 15px. */
 .wx-empty {
   margin: 0;
   padding: 26px 4px;
   color: var(--dim);
-  font-size: 14px;
+  font-size: 15px;
   text-align: center;
 }
 
@@ -531,8 +551,8 @@ body {
 
 .wx-cell-key {
   color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
@@ -541,10 +561,12 @@ body {
 }
 
 .wx-cell-val {
-  font-size: 14px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
+/* 일별 예보의 최저기온. 최고기온과 구분은 하되 읽히긴 해야 하므로
+   --dimmer(4.5:1) 를 쓰고, 기울임은 빼서 작은 숫자가 뭉개지지 않게 했다. */
 .wx-cell-val i {
   color: var(--dimmer);
   font-style: normal;
@@ -577,7 +599,8 @@ body {
   gap: 10px;
   margin-top: 16px;
   padding: 15px 20px;
-  font-size: 14px;
+  /* 상태바도 한글 문장("서울이 선택되었습니다")이 들어가는 자리라 15px. */
+  font-size: 15px;
   border: 1px solid var(--line);
   border-radius: 999px;
 }
@@ -585,7 +608,6 @@ body {
 .wx-statusbar p {
   margin: 0;
 }
-
 
 /* ────────────────────────────────────────────────────────────
    [12] 좁은 화면 보정
