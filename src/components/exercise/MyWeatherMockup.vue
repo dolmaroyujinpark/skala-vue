@@ -289,7 +289,7 @@ const toggleUnit = () => {
     <!-- ══════════ SPLASH ══════════ -->
     <div v-if="isBooting" class="wx-splash">
       <h1 class="wx-splash-title">Weather</h1>
-      <p class="wx-splash-sub">A minimal weather dashboard</p>
+      <p class="wx-splash-sub">Dora's weather dashboard</p>
     </div>
 
     <!-- ══════════ DASHBOARD ══════════ -->
