@@ -1,12 +1,16 @@
 <script setup>
 // Nothing Weather App Icons 스타일의 모노 아이콘 세트.
-// 외부 아이콘 라이브러리 없이 전부 인라인 SVG 로 그렸다.
-// stroke="currentColor" 라서 부모의 color 값을 그대로 따라간다.
+// 외부 아이콘 라이브러리 없이 전부 인라인 SVG 로 그렸습니다.
+// stroke="currentColor" 라서 부모의 color 값을 그대로 따라갑니다.
 defineProps({
   name: { type: String, required: true },
   size: { type: [Number, String], default: 24 },
-  // 아이콘이 커질수록 선이 굵어 보이지 않도록 두께를 따로 넘길 수 있다.
+  // 아이콘이 커질수록 선이 굵어 보이지 않도록 두께를 따로 넘길 수 있습니다.
   width: { type: [Number, String], default: 1.6 },
+  // [2일차 추가] 속을 채울지 여부 (지금은 star 만 사용).
+  // 즐겨찾기 on/off 를 색만으로 표시하면 색약 사용자가 구분하지 못해서,
+  // "채움" 이라는 형태 차이를 하나 더 줍니다.
+  filled: { type: Boolean, default: false },
 })
 </script>
 
@@ -79,6 +83,11 @@ defineProps({
     <!-- × 삭제 -->
     <template v-else-if="name === 'close'">
       <path d="M6 6l12 12M18 6L6 18" />
+    </template>
+
+    <!-- ★ 즐겨찾기 — filled 를 켜면 속이 찬 별이 됩니다 -->
+    <template v-else-if="name === 'star'">
+      <path d="M12 3.7l2.55 5.2 5.7.83-4.12 4.02.97 5.7L12 16.75l-5.1 2.7.97-5.7L3.75 9.73l5.7-.83z" :fill="filled ? 'currentColor' : 'none'" />
     </template>
 
     <!-- 👕 옷차림 — 티셔츠 실루엣 -->
