@@ -1,8 +1,8 @@
 /* Ubuntu Condensed — npm 으로 설치한 self-host 폰트 (CDN 없이 오프라인 동작).
-   @import 는 반드시 다른 규칙보다 위에 와야 한다. */
+   @import 는 반드시 다른 규칙보다 위에 와야 합니다. */
 @import '@fontsource/ubuntu-condensed/latin-400.css';
-/* Ubuntu Condensed 에는 한글 글리프가 없다. 시스템 고딕으로 폴백하면 톤이 깨져서,
-   같은 산업/테크 계열인 IBM Plex Sans KR 을 한글 짝으로 붙였다. (self-host, CDN 불필요) */
+/* Ubuntu Condensed 에는 한글 글리프가 없습니다. 시스템 고딕으로 폴백하면 톤이 깨져서,
+   같은 산업/테크 계열인 IBM Plex Sans KR 을 한글 짝으로 붙였습니다. (self-host, CDN 불필요) */
 @import '@fontsource/ibm-plex-sans-kr/korean-300.css';
 @import '@fontsource/ibm-plex-sans-kr/korean-400.css';
 
@@ -11,24 +11,24 @@
    ────────────────────────────────────────────────────────────
    과제 요구사항 5·6 은 "컴포넌트에 해당되는 디자인은 <style scoped> 로 분리"다.
    그래서 각 구획의 레이아웃 규칙은 전부 해당 .vue 파일 안으로 옮겼고,
-   이 파일에는 "특정 컴포넌트의 것이라고 말할 수 없는 것"만 남겼다.
+   이 파일에는 "특정 컴포넌트의 것이라고 말할 수 없는 것"만 남겼습니다.
 
-     [0] 폰트 · body 리셋   — 문서 전체의 것이라 scoped 로 갈 수 없다
+     [0] 폰트 · body 리셋   — 문서 전체의 것이라 scoped 로 갈 수 없습니다
      [1] 테마 토큰          — .wx 에 한 번 선언하면 CSS 변수 상속으로 모든
-                              자식 컴포넌트에 내려간다. 컴포넌트마다 복사하면
-                              테마를 고칠 때 여섯 군데를 고쳐야 한다.
+                              자식 컴포넌트에 내려갑니다. 컴포넌트마다 복사하면
+                              테마를 고칠 때 여섯 군데를 고쳐야 합니다.
      [2] 무대(.wx)          — 최상위 컴포넌트의 껍데기 + 폰트/색 상속 시작점
      [3] 공용 유틸 3종      — .wx-label / .wx-badge / .wx-icon-btn.
                               두 개 이상의 컴포넌트가 똑같이 쓰는 표기 규칙이라
-                              한쪽 scoped 에 넣으면 다른 쪽에서 안 먹는다.
-                              (컴포넌트별 미세 조정은 각자 scoped 에서 덮어쓴다)
+                              한쪽 scoped 에 넣으면 다른 쪽에서 안 먹습니다.
+                              (컴포넌트별 미세 조정은 각자 scoped 에서 덮어씁니다)
      [4] @keyframes         — scoped 안에 두면 Vue 가 이름을 해싱하므로,
-                              여러 컴포넌트가 공유할 애니메이션은 전역에 둔다.
+                              여러 컴포넌트가 공유할 애니메이션은 전역에 둡니다.
    ════════════════════════════════════════════════════════════ */
 
 /* ────────────────────────────────────────────────────────────
    [0] 페이지 리셋
-   body 배경만 맞춰 두면 스크롤 바운스에서 흰 여백이 비치지 않는다.
+   body 배경만 맞춰 두면 스크롤 바운스에서 흰 여백이 비치지 않습니다.
    ──────────────────────────────────────────────────────────── */
 body {
   margin: 0;
@@ -36,10 +36,10 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────────
-   [1] 테마 토큰 — 두 벌만 관리하면 전체 색이 뒤집힌다.
+   [1] 테마 토큰 — 두 벌만 관리하면 전체 색이 뒤집힙니다.
    WeatherParent 가 :class 로 .wx--dark / .wx--light 를 갈아끼우면
-   CSS 변수 상속을 타고 하위 컴포넌트 전부가 따라 바뀐다.
-   (--dim / --dimmer 는 WCAG AA 4.5:1 을 넘도록 잡았다)
+   CSS 변수 상속을 타고 하위 컴포넌트 전부가 따라 바뀝니다.
+   (--dim / --dimmer 는 WCAG AA 4.5:1 을 넘도록 잡았습니다)
    ──────────────────────────────────────────────────────────── */
 .wx--dark {
   --bg: #000000;
@@ -69,11 +69,11 @@ body {
   min-height: 100dvh;
   background: var(--bg);
   color: var(--fg);
-  /* 영문은 Ubuntu Condensed, 한글은 뒤쪽 IBM Plex Sans KR 로 자동 폴백된다. */
+  /* 영문은 Ubuntu Condensed, 한글은 뒤쪽 IBM Plex Sans KR 로 자동 폴백됩니다. */
   font-family: 'Ubuntu Condensed', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif;
   font-size: 16px;
   /* 한글은 폴백 폰트(IBM Plex Sans KR)로 그려지는데 라틴보다 글자 높이가 커서
-     행간이 1.5 면 답답하다. 1.65 로 열어 두면 한/영 섞인 줄도 편하게 읽힌다. */
+     행간이 1.5 면 답답합니다. 1.65 로 열어 두면 한/영 섞인 줄도 편하게 읽힙니다. */
   line-height: 1.65;
   letter-spacing: 0.01em;
   transition:
@@ -86,7 +86,7 @@ body {
    ──────────────────────────────────────────────────────────── */
 
 /* 작은 대문자 캡션 — 원본의 'Current Location' / 'Hourly Forecast' 스타일.
-   WeatherParent · WeatherHero · SearchBar · ForecastStrip 이 함께 쓴다. */
+   WeatherParent · WeatherHero · SearchBar · ForecastStrip 이 함께 씁니다. */
 .wx-label {
   display: block;
   margin: 0 0 14px;
@@ -97,8 +97,8 @@ body {
   text-transform: uppercase;
 }
 
-/* 25도 기준 라벨 — 채우지 않고 테두리로만 구분한다.
-   WeatherHero(큰 배지) 와 WeatherCard(작은 배지) 가 함께 쓴다. */
+/* 25도 기준 라벨 — 채우지 않고 테두리로만 구분합니다.
+   WeatherHero(큰 배지) 와 WeatherCard(작은 배지) 가 함께 씁니다. */
 .wx-badge {
   display: inline-block;
   margin: 20px 0 0;
@@ -117,7 +117,7 @@ body {
   border-color: var(--fg);
 }
 
-/* 테두리 없는 원형 아이콘 버튼 — SearchBar(지우기) 와 WeatherCard(삭제) 가 함께 쓴다. */
+/* 테두리 없는 원형 아이콘 버튼 — SearchBar(지우기) 와 WeatherCard(삭제) 가 함께 씁니다. */
 .wx-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -139,7 +139,7 @@ body {
 /* ────────────────────────────────────────────────────────────
    [4] 공유 애니메이션
    scoped <style> 안에 선언하면 Vue 가 keyframes 이름까지 해싱하기 때문에
-   다른 컴포넌트에서 animation: wx-in 을 불러도 먹지 않는다. 그래서 전역.
+   다른 컴포넌트에서 animation: wx-in 을 불러도 먹지 않습니다. 그래서 전역.
    ──────────────────────────────────────────────────────────── */
 @keyframes wx-in {
   from {
