@@ -2,9 +2,12 @@
 <html lang="">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
+    <!-- 탭 아이콘. 링크를 하나만 두어 브라우저가 고를 여지를 없앤다.
+         ?v=3 은 캐시 무력화용 — 크롬이 파비콘을 오래 붙들고 있어서,
+         주소가 달라 보이게 만들면 새로 받아온다. 아이콘을 갈아끼울 때마다 숫자를 올리면 된다. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SKALA-VUE : 모던 웹 애플리케이션 개발 실습실</title>
+    <title>SKALA-VUE: Dora's Weather Dashboard </title>
     <!-- 앱 CSS 는 JS 가 로드된 뒤에야 주입되므로, 그 전까지 흰 배경 + body 기본 여백이
          테두리처럼 번쩍인다. 첫 페인트부터 검은 화면이 되도록 여기서 미리 깔아둔다. -->
     <style>
