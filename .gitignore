@@ -37,3 +37,13 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Figma 다운로드 원본 (참고용, 로컬에만 보관)
+/Weather Website Layout (Community)/
+/Weather Website Layout (Community).zip
+/Splash.png
+/Home.png
+/Details.png
+/Forecast.png
+/Locations.png
+/Settings.png
