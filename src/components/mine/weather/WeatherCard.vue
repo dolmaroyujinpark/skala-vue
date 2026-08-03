@@ -103,8 +103,10 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card'])
     background-color 0.2s;
 }
 
+/* 카드 폭이 170px 로 줄면서(부모 .wx-cards 주석 참고) 좌우 여백도 같이 줄였다.
+   안쪽 콘텐츠 폭 = 170 - 24 = 146px 기준으로 아래 글자 크기를 잡았다. */
 .wx-card.wx-panel {
-  padding: 24px 16px 18px;
+  padding: 22px 12px 16px;
 }
 
 .wx-card:hover {
@@ -127,14 +129,16 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card'])
 }
 
 .wx-card-city {
-  margin: 18px 0 0;
-  font-size: 19px;
+  margin: 16px 0 0;
+  font-size: 18px;
   font-weight: 400;
 }
 
+/* 38px 이면 화씨 3자리("84°F")가 146px 안에서 아슬아슬하다. 32px 로 낮춰
+   °C ↔ °F 를 오갈 때 숫자가 줄바꿈되지 않게 했다. */
 .wx-card-temp {
   margin: 6px 0 0;
-  font-size: 38px;
+  font-size: 32px;
   line-height: 1;
 }
 
@@ -162,12 +166,13 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card'])
 
 .wx-detail-btn {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 14px;
   padding: 9px 0;
   color: var(--dim);
   font: inherit;
   font-size: 11px;
-  letter-spacing: 0.18em;
+  /* 자간 0.18em 이면 좁아진 카드에서 DETAILS 가 테두리에 닿는다 */
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   background: none;
   border: 1px solid var(--line);

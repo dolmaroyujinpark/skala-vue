@@ -122,6 +122,114 @@ const weatherList = ref([
       { id: 'd6', date: 'AUG 05', icon: 'cloud', high: 28, low: 23 },
     ],
   },
+  {
+    id: 'city_04',
+    name: '판교',
+    temp: 29,
+    status: '맑음',
+    icon: 'sun',
+    high: 32,
+    low: 23,
+    sunrise: '05:33',
+    sunset: '19:47',
+    hourly: [
+      { id: 'h1', time: '10:00', icon: 'sun', temp: 29 },
+      { id: 'h2', time: '11:00', icon: 'sun', temp: 30 },
+      { id: 'h3', time: '12:00', icon: 'sun', temp: 31 },
+      { id: 'h4', time: '13:00', icon: 'partly', temp: 32 },
+      { id: 'h5', time: '14:00', icon: 'cloud', temp: 31 },
+      { id: 'h6', time: '15:00', icon: 'night', temp: 29 },
+    ],
+    daily: [
+      { id: 'd1', date: 'JUL 31', icon: 'sun', high: 32, low: 23 },
+      { id: 'd2', date: 'AUG 01', icon: 'sun', high: 33, low: 24 },
+      { id: 'd3', date: 'AUG 02', icon: 'partly', high: 30, low: 23 },
+      { id: 'd4', date: 'AUG 03', icon: 'rain', high: 27, low: 22 },
+      { id: 'd5', date: 'AUG 04', icon: 'cloud', high: 28, low: 22 },
+      { id: 'd6', date: 'AUG 05', icon: 'sun', high: 31, low: 23 },
+    ],
+  },
+  {
+    id: 'city_05',
+    name: '강릉',
+    temp: 30,
+    status: '맑음',
+    icon: 'sun',
+    high: 33,
+    low: 24,
+    sunrise: '05:27',
+    sunset: '19:44',
+    hourly: [
+      { id: 'h1', time: '10:00', icon: 'sun', temp: 30 },
+      { id: 'h2', time: '11:00', icon: 'sun', temp: 31 },
+      { id: 'h3', time: '12:00', icon: 'sun', temp: 33 },
+      { id: 'h4', time: '13:00', icon: 'sun', temp: 33 },
+      { id: 'h5', time: '14:00', icon: 'partly', temp: 32 },
+      { id: 'h6', time: '15:00', icon: 'night', temp: 30 },
+    ],
+    daily: [
+      { id: 'd1', date: 'JUL 31', icon: 'sun', high: 33, low: 24 },
+      { id: 'd2', date: 'AUG 01', icon: 'sun', high: 34, low: 25 },
+      { id: 'd3', date: 'AUG 02', icon: 'sun', high: 33, low: 25 },
+      { id: 'd4', date: 'AUG 03', icon: 'partly', high: 31, low: 24 },
+      { id: 'd5', date: 'AUG 04', icon: 'cloud', high: 29, low: 23 },
+      { id: 'd6', date: 'AUG 05', icon: 'sun', high: 32, low: 24 },
+    ],
+  },
+  {
+    id: 'city_06',
+    name: '거제',
+    temp: 27,
+    status: '구름',
+    icon: 'cloud',
+    high: 29,
+    low: 24,
+    sunrise: '05:24',
+    sunset: '19:39',
+    hourly: [
+      { id: 'h1', time: '10:00', icon: 'cloud', temp: 27 },
+      { id: 'h2', time: '11:00', icon: 'cloud', temp: 28 },
+      { id: 'h3', time: '12:00', icon: 'partly', temp: 29 },
+      { id: 'h4', time: '13:00', icon: 'partly', temp: 29 },
+      { id: 'h5', time: '14:00', icon: 'cloud', temp: 28 },
+      { id: 'h6', time: '15:00', icon: 'night', temp: 27 },
+    ],
+    daily: [
+      { id: 'd1', date: 'JUL 31', icon: 'cloud', high: 29, low: 24 },
+      { id: 'd2', date: 'AUG 01', icon: 'partly', high: 30, low: 24 },
+      { id: 'd3', date: 'AUG 02', icon: 'sun', high: 31, low: 25 },
+      { id: 'd4', date: 'AUG 03', icon: 'rain', high: 28, low: 24 },
+      { id: 'd5', date: 'AUG 04', icon: 'rain', high: 27, low: 23 },
+      { id: 'd6', date: 'AUG 05', icon: 'cloud', high: 29, low: 24 },
+    ],
+  },
+  {
+    id: 'city_07',
+    name: '제주',
+    temp: 25,
+    status: '비',
+    icon: 'rain',
+    high: 27,
+    low: 23,
+    sunrise: '05:35',
+    sunset: '19:44',
+    hourly: [
+      { id: 'h1', time: '10:00', icon: 'rain', temp: 25 },
+      { id: 'h2', time: '11:00', icon: 'rain', temp: 25 },
+      { id: 'h3', time: '12:00', icon: 'rain', temp: 26 },
+      { id: 'h4', time: '13:00', icon: 'cloud', temp: 27 },
+      { id: 'h5', time: '14:00', icon: 'cloud', temp: 26 },
+      { id: 'h6', time: '15:00', icon: 'night', temp: 25 },
+    ],
+    daily: [
+      { id: 'd1', date: 'JUL 31', icon: 'rain', high: 27, low: 23 },
+      { id: 'd2', date: 'AUG 01', icon: 'rain', high: 26, low: 23 },
+      { id: 'd3', date: 'AUG 02', icon: 'cloud', high: 28, low: 24 },
+      { id: 'd4', date: 'AUG 03', icon: 'partly', high: 29, low: 24 },
+      { id: 'd5', date: 'AUG 04', icon: 'sun', high: 30, low: 25 },
+      { id: 'd6', date: 'AUG 05', icon: 'sun', high: 30, low: 25 },
+    ],
+  },
 ])
 
 /* ────────────────────────────────────────────────
@@ -156,6 +264,13 @@ const selectedCityInfo = ref('Select a city card to begin.')
 
 // [2일차 추가] 직접 선언한 반응형 변수 — 온도 단위 (섭씨 / 화씨)
 const tempUnit = ref('C')
+
+// [4일차 직접 추가] 반응형 변수 — 옷차림 추천 패널을 켤지 끌지
+// 이 값 하나로 화면에서 패널이 사라졌다 나타났다 한다.
+// 템플릿에서는 v-if 가 아니라 v-show 로 묶었다. 사용자가 버튼을 누를 때마다
+// 자주 켜고 끄는 자리라, DOM 을 지웠다 다시 만드는 v-if 보다
+// display 만 바꾸는 v-show 가 싸다.
+const showOutfit = ref(true)
 
 // 더움 / 선선함을 가르는 기준 온도 (과제 스펙: 25도)
 const HOT_TEMP = 25
@@ -353,8 +468,19 @@ const toggleUnit = () => {
 
       <div class="wx-grid">
         <!-- ══════════ 좌 : 선택된 도시 ══════════ -->
-        <!-- 환산된 온도까지 부모가 계산해 내려준다 (Props · 하행선) -->
-        <WeatherHero :city="current" :temp="currentTemp" :high="currentHigh" :low="currentLow" :date-label="today" :hot-temp="HOT_TEMP" />
+        <!-- 환산된 온도까지 부모가 계산해 내려준다 (Props · 하행선).
+             [4일차 추가] 옷차림 패널의 on/off 상태(showOutfit)도 부모가 쥐고 내려보내고,
+             히어로 안의 버튼이 눌리면 toggle-outfit 이벤트로 되돌려받아 부모가 뒤집는다. -->
+        <WeatherHero
+          :city="current"
+          :temp="currentTemp"
+          :high="currentHigh"
+          :low="currentLow"
+          :date-label="today"
+          :hot-temp="HOT_TEMP"
+          :show-outfit="showOutfit"
+          @toggle-outfit="showOutfit = !showOutfit"
+        />
 
         <!-- ══════════ 우 : 검색 + 도시 카드 ══════════ -->
         <section class="wx-side">
@@ -559,11 +685,18 @@ const toggleUnit = () => {
 
 /* ── [5] 카드 격자 ────────────────────────────────────────── */
 /* 카드 한 장의 생김새는 WeatherCard.vue 가 책임지고,
-   "몇 열로 늘어놓을지"는 배치를 아는 부모가 정한다. */
+   "몇 열로 늘어놓을지"는 배치를 아는 부모가 정한다.
+
+   도시가 3개에서 7개로 늘면서 최소폭을 180px → 160px 로 줄였다.
+   오른쪽 열은 1120 - 48(셸 패딩) - 340(히어로) - 16(그리드 gap) = 716px 이라
+     180px → (716-28)/3  = 3열 → 7개면 3줄
+     160px → (716-36)/4  = 4열 → 7개면 2줄 (4 + 3)
+   셸 폭(max-width: 1120px)을 넓혀 4열을 만드는 방법도 있지만, 히어로가 340px
+   고정이라 넓힐수록 좌우 비대칭이 커진다. 그래서 카드를 줄이는 쪽을 택했다. */
 .wx-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
 }
 
 /* [2일차 요구사항 4-c] 검색 결과 없음 안내. 한글 문장이라 15px. */

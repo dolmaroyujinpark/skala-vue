@@ -20,9 +20,7 @@ const props = defineProps({
 })
 
 // 원본 SVG 의 고정 width/height 를 걷어내야 CSS 로 크기를 잡을 수 있다.
-const markup = computed(() =>
-  (SOURCES[props.name] ?? SOURCES.sun).replace(/\s(width|height)="[^"]*"/g, ''),
-)
+const markup = computed(() => (SOURCES[props.name] ?? SOURCES.sun).replace(/\s(width|height)="[^"]*"/g, ''))
 </script>
 
 <template>

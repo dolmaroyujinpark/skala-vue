@@ -80,6 +80,18 @@ defineProps({
     <template v-else-if="name === 'close'">
       <path d="M6 6l12 12M18 6L6 18" />
     </template>
+
+    <!-- 👕 옷차림 — 티셔츠 실루엣 -->
+    <template v-else-if="name === 'shirt'">
+      <path d="M9 4.2 12 6l3-1.8 4.2 2.2-1.6 3.4-1.8-.7v9.7H8.2v-9.7l-1.8.7L4.8 6.4z" />
+    </template>
+
+    <!-- ☂️ 우산 -->
+    <template v-else-if="name === 'umbrella'">
+      <path d="M3.4 12.6a8.6 8.6 0 0 1 17.2 0z" />
+      <path d="M12 12.6v6.2a2 2 0 0 1-4 0" />
+      <path d="M12 3.2v1.2" />
+    </template>
   </svg>
 </template>
 
