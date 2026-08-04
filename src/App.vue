@@ -1,7 +1,8 @@
 <script setup>
-import { ref, provide, readonly, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
+import UnitToggler from '@/components/mine/weather/UnitToggler.vue'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] App.vue — 앱 셸 (요구사항 2)
@@ -65,26 +66,22 @@ const onSystemThemeChange = (event) => {
 }
 
 /* ────────────────────────────────────────────────
-   [3일차 변경] 온도 단위 — 소유자가 WeatherParent 에서 App 으로 올라왔습니다.
+   [4일차 변경] 온도 단위가 이 파일을 떠났습니다.
 
-   2일차에는 대시보드 화면 하나가 이 값을 쥐고 provide 했습니다. 그런데
-   °C/°F 토글 버튼이 앱 바 안에 있고, 앱 바가 여기로 올라왔습니다.
-   토글 버튼과 상태가 서로 다른 파일에 있으면 곤란하므로 같이 올렸습니다.
+   3일차까지는 여기서 ref('C') 로 들고 provide 했습니다.
+     2일차  WeatherParent 가 소유 + provide
+     3일차  앱 바가 올라오면서 App.vue 가 소유 + provide
+     4일차  stores/configStore.js 로 이사 — App.vue 는 이제 관여하지 않음
 
-   덕분에 부수적으로 얻은 것: 상세 페이지(/weather/:id)에서도 같은 단위가
-   그대로 적용됩니다. 목록에서 °F 로 보다가 상세로 들어갔는데 °C 로
-   돌아가 버리면, 사용자 입장에서는 설정이 풀린 것으로 보입니다.
+   provide 를 걷어낸 자리를 store 가 대신합니다. 값이 필요한 컴포넌트는
+   조상을 거치지 않고 useConfigStore() 로 직접 집어 옵니다.
+   그래서 이 파일에는 단위에 대한 코드가 한 줄도 남지 않았습니다 —
+   앱 바에 <UnitToggler /> 를 놓아 준 것이 전부입니다.
 
-   readonly() 로 감싸서 후손이 실수로 값을 바꾸지 못하게 막습니다.
-   단위를 바꾸는 유일한 통로는 아래 toggleUnit() 하나뿐입니다.
+   테마(isDark)는 왜 안 옮겼나 — 과제 범위가 아니기도 하고, 이 값은
+   App.vue 의 :class 하나만 쓰는 "이 파일의 상태"라 밖으로 뺄 이유가
+   없습니다. 여러 화면이 공유하는 값만 store 로 갑니다.
    ──────────────────────────────────────────────── */
-const tempUnit = ref('C')
-
-provide('tempUnit', readonly(tempUnit))
-
-const toggleUnit = () => {
-  tempUnit.value = tempUnit.value === 'C' ? 'F' : 'C'
-}
 
 /* ────────────────────────────────────────────────
    부팅 — 폰트가 준비되면 스플래시를 걷습니다
@@ -165,13 +162,14 @@ onBeforeUnmount(() => {
         </nav>
 
         <div class="wx-appbar-controls">
-          <!-- [2일차] 제가 만든 tempUnit 을 뒤집는 버튼 -->
-          <div class="wx-segment" role="group" aria-label="Temperature unit">
-            <button class="wx-segment-btn" :class="{ 'is-on': tempUnit === 'C' }" @click="toggleUnit">°C</button>
-            <button class="wx-segment-btn" :class="{ 'is-on': tempUnit === 'F' }" @click="toggleUnit">°F</button>
-          </div>
+          <!-- [4일차 요구사항 2] Navigation Bar 옆에 UnitToggler 배치.
+               3일차까지 여기 직접 박혀 있던 세그먼트를 컴포넌트로 뽑아낸 것이라
+               화면은 그대로입니다. 달라진 것은 App.vue 가 이 버튼에
+               아무것도 넘겨주지 않는다는 점 — 값도 핸들러도 store 에서
+               직접 가져다 씁니다. -->
+          <UnitToggler />
 
-          <!-- 테마 전환 -->
+          <!-- 테마 전환 — 이쪽은 App.vue 가 계속 소유합니다 -->
           <div class="wx-segment" role="group" aria-label="Theme">
             <button class="wx-segment-btn" :class="{ 'is-on': isDark }" @click="isDark = true">Dark</button>
             <button class="wx-segment-btn" :class="{ 'is-on': !isDark }" @click="isDark = false">Light</button>
@@ -356,36 +354,10 @@ onBeforeUnmount(() => {
    대신 상세 페이지 안에 "목록으로" 버튼이 있습니다. */
 
 /* ── [5] 세그먼트 (단위 · 테마) ───────────────────────────── */
-.wx-segment {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-}
-
-.wx-segment-btn {
-  padding: 5px 15px;
-  color: var(--dim);
-  font: inherit;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  background: none;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.wx-segment-btn:hover {
-  color: var(--fg);
-}
-
-.wx-segment-btn.is-on {
-  color: var(--bg);
-  background: var(--fg);
-}
+/* [4일차] .wx-segment / .wx-segment-btn 은 weather-base.css 로 옮겼습니다.
+   단위 토글이 UnitToggler.vue 로 떨어져 나가면서 쓰는 컴포넌트가 둘이 됐고,
+   scoped 스타일은 다른 파일까지 닿지 않기 때문입니다.
+   여기 남은 테마 토글도 그 공용 클래스를 그대로 씁니다. */
 
 /* ── [6] 좁은 화면 보정 ───────────────────────────────────── */
 @media (max-width: 560px) {

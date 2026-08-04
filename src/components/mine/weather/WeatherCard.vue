@@ -1,8 +1,8 @@
 <script setup>
-import { ref, inject } from 'vue'
 import BaseDashboardCard from './BaseDashboardCard.vue'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
 import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
+import { useConfigStore } from '@/stores/configStore'
 
 /* ════════════════════════════════════════════════════════════
    [과제 요구사항 4] WeatherCard.vue
@@ -49,12 +49,17 @@ defineProps({
 })
 
 /* ────────────────────────────────────────────────
-   [Provide / Inject] 조상이 심어 둔 온도 단위를 직접 꺼내 씁니다.
-   °C / °F 글자 한 개 때문에 WeatherParent → WeatherCard 로 props 를
-   하나 더 뚫는 건 전형적인 Props Drilling 이라, 조상이 provide 한 값을
-   inject 로 바로 집었습니다. 두 번째 인자는 이 컴포넌트를 단독으로 띄웠을 때의 기본값.
+   [4일차 변경] ℃ / ℉ 기호를 store 에서 가져옵니다.
+
+   3일차까지는 inject('tempUnit') 이었습니다. 기호 한 글자 때문에
+   부모 → 자식으로 props 를 하나 더 뚫는 건 Props Drilling 이라
+   조상이 provide 한 값을 바로 집는 방식이었죠.
+
+   store 는 그 한 단계를 더 줄입니다. inject 는 그래도 "조상이 provide 를
+   해 뒀어야" 동작하지만, store 는 조상이 누구든 상관없습니다.
+   카드를 다른 화면으로 옮겨 붙여도 그대로 동작합니다.
    ──────────────────────────────────────────────── */
-const tempUnit = inject('tempUnit', ref('C'))
+const configStore = useConfigStore()
 
 /* ────────────────────────────────────────────────
    [Emits · 상행선] 자식 → 부모
@@ -92,7 +97,7 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card', 'toggle-
 
     <h3 class="wx-card-city">{{ cityItem.name }}</h3>
     <p class="wx-card-temp">
-      {{ cityItem.shownTemp }}<span>°{{ tempUnit }}</span>
+      {{ cityItem.shownTemp }}<span>{{ configStore.unitSymbol }}</span>
     </p>
     <p class="wx-card-status">{{ cityItem.status }}</p>
 

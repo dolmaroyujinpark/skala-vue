@@ -1,8 +1,8 @@
 <script setup>
-import { ref, inject } from 'vue'
 import BaseDashboardCard from './BaseDashboardCard.vue'
 import OutfitCard from './OutfitCard.vue'
 import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
+import { useConfigStore } from '@/stores/configStore'
 
 /* ════════════════════════════════════════════════════════════
    [지시 외 추가 컴포넌트] WeatherHero.vue
@@ -57,8 +57,15 @@ defineProps({
    여기서는 신호만 올립니다. */
 const emit = defineEmits(['toggle-outfit'])
 
-// [Provide / Inject] °C / °F 글자. WeatherCard 와 같은 이유로 props 대신 inject.
-const tempUnit = inject('tempUnit', ref('C'))
+/* [4일차 변경] ℃ / ℉ 기호를 store 에서 가져옵니다.
+   3일차까지는 inject('tempUnit') 이었습니다. props 로 안 받는 이유는
+   그때와 같습니다 — 이 컴포넌트는 기호 한 글자 찍으려고 쓰는데, 그걸
+   props 로 내리면 부모가 쓰지도 않을 통로를 뚫어 줘야 합니다.
+
+   달라진 점은 그 값이 이제 조상이 아니라 store 에서 온다는 것뿐입니다.
+   덕분에 목록 화면(WeatherHomeView)에서 쓰든 상세 화면에서 쓰든,
+   부모가 무엇을 provide 하는지 신경 쓸 필요가 없어졌습니다. */
+const configStore = useConfigStore()
 </script>
 
 <template>
@@ -78,7 +85,8 @@ const tempUnit = inject('tempUnit', ref('C'))
     <div class="wx-hero-figures">
       <p class="wx-temp">
         <span class="wx-temp-num">{{ temp }}</span>
-        <span class="wx-temp-unit">°{{ tempUnit }}</span>
+        <!-- [4일차] ℃ / ℉ 는 한 글자짜리 유니코드라 '°' 를 따로 붙이지 않습니다 -->
+        <span class="wx-temp-unit">{{ configStore.unitSymbol }}</span>
       </p>
       <p class="wx-condition">{{ city.status }}</p>
 
