@@ -172,7 +172,7 @@ const goList = () => {
 
       <!-- 상세 페이지는 내비게이션에 항목이 없는 화면이라, 돌아가는 길을 본문에 둡니다. -->
       <footer class="wx-detail-foot">
-        <button class="wx-action" @click="goList">← 목록으로 돌아가기</button>
+        <button class="wx-action" @click="goList">← Dashboard</button>
       </footer>
     </template>
 
@@ -184,7 +184,7 @@ const goList = () => {
       <p class="wx-detail-missing-text">
         도시 코드 <strong>{{ route.params.cityId }}</strong> 에 해당하는 관측 정보가 없습니다.
       </p>
-      <button class="wx-action" @click="goList">목록으로 돌아가기</button>
+      <button class="wx-action" @click="goList">Dashboard</button>
     </BaseDashboardCard>
   </div>
 </template>

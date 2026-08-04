@@ -155,9 +155,13 @@ onBeforeUnmount(() => {
              현재 주소와 일치하는 링크에는 Vue Router 가 router-link-active /
              router-link-exact-active 클래스를 자동으로 붙여 줍니다.
              아래 CSS 는 그 클래스를 잡아서 지금 있는 위치를 표시합니다. -->
+        <!-- 라벨은 영문 — 앱 바의 다른 컨트롤(°C/°F · Dark/Light)과 히어로의
+             캡션(Current Location · Hourly Forecast)이 전부 영문이라 맞췄습니다.
+             aria-label 은 한글로 남깁니다. 화면에 안 보이고 스크린 리더가
+             읽어 주는 설명이라, 사용자 언어로 적는 편이 낫습니다. -->
         <nav class="wx-nav" aria-label="주요 메뉴">
-          <RouterLink to="/" class="wx-nav-item">대시보드</RouterLink>
-          <RouterLink to="/about" class="wx-nav-item">소개</RouterLink>
+          <RouterLink to="/" class="wx-nav-item">Dashboard</RouterLink>
+          <RouterLink to="/about" class="wx-nav-item">About</RouterLink>
         </nav>
 
         <div class="wx-appbar-controls">

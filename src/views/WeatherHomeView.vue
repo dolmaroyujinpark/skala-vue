@@ -1,3 +1,13 @@
+<script>
+/* ⚠️ <script setup> 이 아니라 평범한 <script> 인 이유 —
+   <script setup> 안의 최상위 변수는 사실 setup() 함수 안의 지역 변수라,
+   화면을 나갔다 들어오면 컴포넌트가 다시 만들어지면서 같이 초기화됩니다.
+   "앱을 켠 뒤 딱 한 번"을 기억하려면 컴포넌트보다 오래 사는 자리가 필요합니다.
+   이 블록은 모듈이 처음 로드될 때 한 번만 실행되므로 그 조건을 만족합니다.
+   (한 파일에 <script> 와 <script setup> 을 같이 둘 수 있습니다) */
+let hasFocusedOnce = false
+</script>
+
 <script setup>
 import { ref, computed, watch, watchEffect, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -125,8 +135,48 @@ const searchBar = ref(null)
 
    대신 더 간단해졌습니다 — App.vue 의 v-else(=셸)가 켜지는 그 순간이
    이 화면이 mount 되는 시점이라, 여기서는 그냥 onMounted 면 됩니다.
-   이미 DOM 이 붙은 뒤 호출되는 훅이라 nextTick 도 필요 없습니다. */
+   이미 DOM 이 붙은 뒤 호출되는 훅이라 nextTick 도 필요 없습니다.
+
+   ── [3일차 보완] 그런데 라우터가 붙으면서 문제가 하나 생겼습니다 ──
+   증상: 모바일에서 상단 내비의 Dashboard 를 누르면 화면이 저절로 아래로
+         끌려 내려갑니다.
+
+   원인: 포커스가 가면 브라우저는 그 입력칸을 화면 안으로 밀어 넣습니다.
+         모바일은 여기에 가상 키보드까지 올라와 보이는 영역이 절반으로 줄고,
+         결과적으로 히어로를 지나 검색창까지 스크롤이 튑니다.
+         게다가 화면을 옮길 때마다 이 컴포넌트가 새로 mount 되므로
+         Dashboard 를 누를 때마다 매번 반복됩니다.
+
+   그래서 조건 세 개를 겁니다.
+
+     1) 검색창이 이미 화면 안에 있을 때만  ← 스크롤이 튀는 진짜 원인
+        아래 CSS 를 보면 860px 이하에서 그리드가 1단으로 접힙니다. 그러면
+        DOM 순서대로 히어로 → 예보 → 검색창 이 되어 검색창이 첫 화면 밖으로
+        밀려납니다. 화면 밖 요소에 포커스를 주면 브라우저는 그걸 보이게
+        하려고 스크롤합니다. 즉 스크롤이 튄 게 아니라 브라우저가 시킨 대로
+        한 것입니다.
+        861px 이상(2단 레이아웃)에서는 검색창이 오른쪽 열 맨 위라 이미
+        보이는 자리에 있고, 그래서 포커스를 줘도 화면이 움직이지 않습니다.
+        ⚠️ 이 861 은 아래 @media (max-width: 860px) 와 한 쌍입니다.
+           한쪽만 고치면 다시 스크롤이 튑니다.
+
+     2) 마우스가 있는 기기에서만
+        (pointer: fine) 은 마우스·트랙패드처럼 정밀한 포인터를 뜻합니다.
+        터치 기기는 (pointer: coarse) 라서 걸러집니다.
+        폭 조건이 있는데도 이게 필요한 이유 — 태블릿 가로 모드는 1024px 라
+        폭 조건을 통과해 버립니다. 거기서 포커스를 주면 가상 키보드가
+        올라와 화면 절반을 덮습니다.
+
+     3) 앱을 켠 뒤 딱 한 번만
+        2일차의 원래 의도가 "스플래시가 걷히면 바로 검색할 수 있게"였습니다.
+        소개 화면에 갔다가 돌아올 때까지 커서를 뺏을 이유는 없습니다. */
+const FOCUS_MIN_WIDTH = 861
+
 onMounted(() => {
+  if (hasFocusedOnce) return
+  if (!window.matchMedia(`(min-width: ${FOCUS_MIN_WIDTH}px) and (pointer: fine)`).matches) return
+
+  hasFocusedOnce = true
   searchBar.value?.focus()
 })
 
