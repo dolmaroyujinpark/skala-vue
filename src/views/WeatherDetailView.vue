@@ -1,6 +1,8 @@
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useConfigStore } from '@/stores/configStore'
+import { fetchCityWeather, CITY_QUERY } from '@/api/weather'
 
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
 import WeatherHero from '@/components/mine/weather/WeatherHero.vue'
@@ -32,9 +34,10 @@ import { findCityById } from '@/data/cities'
 const route = useRoute()
 const router = useRouter()
 
-// [3일차] 온도 단위는 App.vue 가 provide 합니다.
-// 목록에서 °F 로 보다가 들어와도 여기서 °C 로 되돌아가지 않습니다.
-const tempUnit = inject('tempUnit', ref('C'))
+/* [4일차 요구사항 3] 단위는 store 에서 읽습니다.
+   목록에서 ℉ 로 보다가 들어와도 여기서 ℃ 로 되돌아가지 않습니다.
+   화면이 바뀌어도 store 는 그대로 살아 있기 때문입니다. */
+const configStore = useConfigStore()
 
 /* ────────────────────────────────────────────────
    [요구사항 4] Mount 시점에 도시 객체 선택
@@ -46,26 +49,65 @@ const tempUnit = inject('tempUnit', ref('C'))
    ──────────────────────────────────────────────── */
 const cityData = ref(null)
 
+/* [4일차 추가] 통신 중 여부. 목록과 달리 이 화면은 처음에 보여 줄 게
+   아무것도 없어서(도시 하나를 찾아와야 하므로) 로딩 안내가 필요합니다. */
+const isLoading = ref(false)
+
 /* 옷차림 패널 펼침 상태. 목록 화면과 같은 구조 — 상태는 부모가 쥐고
    히어로는 신호만 올립니다. 목록에서는 접힌 채로 시작하지만 여기서는
    일부러 상세를 보러 들어온 화면이라 펼친 채로 시작합니다. */
 const showOutfit = ref(true)
 
-onMounted(() => {
+/* ────────────────────────────────────────────────
+   [요구사항 4 · 4일차] Mount 시점에 도시 하나를 조회
+
+   3일차에는 findCityById 로 Mock 에서 즉시 꺼냈습니다. 이제 API 를
+   부르므로 시간이 걸리고, 그 사이 화면은 로딩 상태가 됩니다.
+   ref(null) 로 시작해 두길 잘한 부분입니다 — "아직 안 찾았다"를 표현할
+   자리가 이미 있어서 구조를 바꿀 필요가 없었습니다.
+
+   ⚠️ 존재하지 않는 도시 코드는 API 를 부르기 전에 걸러냅니다.
+      CITY_QUERY 에 없는 id 로 요청하면 404 가 오는데, 그건 "없는 도시"가
+      아니라 "통신 실패"로 보여서 안내 문구가 엉뚱해집니다.
+   ──────────────────────────────────────────────── */
+onMounted(async () => {
   // route.params.cityId 의 이름은 router/index.js 의 path: '/weather/:cityId' 에서 옵니다.
   // 둘 중 하나만 고치면 조용히 undefined 가 되므로 항상 같이 봐야 합니다.
-  cityData.value = findCityById(route.params.cityId) ?? null
+  const id = route.params.cityId
 
-  if (!cityData.value) {
-    console.warn(`🔍 [detail] '${route.params.cityId}' 에 해당하는 도시가 Mock Data 에 없습니다.`)
+  if (!CITY_QUERY[id]) {
+    console.warn(`🔍 [detail] '${id}' 는 등록되지 않은 도시 코드입니다.`)
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    cityData.value = await fetchCityWeather(id)
+    console.log(`🟢 [API] ${id} 실시간 상세 조회 완료`, cityData.value)
+  } catch (error) {
+    // 통신이 실패해도 화면은 보여 줍니다. Mock 이 최신은 아니지만
+    // "아무것도 없음" 보다는 낫습니다.
+    cityData.value = findCityById(id) ?? null
+    console.error(`🔴 [API] ${id} 상세 조회 실패 — Mock 으로 대체합니다.`, error)
+  } finally {
+    isLoading.value = false
   }
 })
 
 /* ────────────────────────────────────────────────
-   단위 환산 — 목록 화면과 똑같은 방식
+   [4일차 요구사항 3] 단위 환산 — 목록 화면과 똑같은 방식
    자식(WeatherHero · ForecastStrip)은 환산된 숫자만 받습니다.
+
+   ⚠️ 이 convert 는 WeatherHomeView 의 것과 글자 하나 다르지 않습니다.
+      과제 참고사항이 지적한 그 중복입니다 — Composable(useTemperature 같은)로
+      한 곳에 모을 수 있지만 이번 과제 범위 밖이라고 명시돼 있어 그대로 뒀습니다.
+      나중에 뺄 때는 이 함수와 홈 화면의 같은 함수를 함께 지워야 합니다.
    ──────────────────────────────────────────────── */
-const convert = (celsius) => (tempUnit.value === 'C' ? celsius : Math.round((celsius * 9) / 5 + 32))
+const convert = (celsius) => {
+  if (configStore.unit === 'fahrenheit') return Math.round((celsius * 9) / 5 + 32)
+  return celsius
+}
 
 // cityData 가 아직 null 일 수 있으므로 ?? 로 받치고, 아래 v-if 가 실제 렌더링을 막습니다.
 const shownTemp = computed(() => convert(cityData.value?.temp ?? 0))
@@ -90,11 +132,14 @@ const metrics = computed(() => {
   const city = cityData.value
   if (!city) return []
 
+  /* [4일차] UV Index 를 뺐습니다.
+     OpenWeatherMap 무료 플랜의 /weather 에는 UV 가 없고, One Call API 는
+     유료입니다. Mock 에만 있는 값을 실시간 지표들 사이에 끼워 두면
+     그 칸만 조용히 거짓말을 하게 되므로 아예 지웠습니다. */
   return [
     { id: 'humidity', label: 'Humidity', value: `${city.humidity}%` },
     { id: 'wind', label: 'Wind', value: `${city.wind}m/s` },
     { id: 'pressure', label: 'Pressure', value: `${city.pressure}hPa` },
-    { id: 'uv', label: 'UV Index', value: `${city.uv}` },
     { id: 'sunrise', label: 'Sunrise', value: city.sunrise },
     { id: 'sunset', label: 'Sunset', value: city.sunset },
   ]
@@ -113,8 +158,16 @@ const goList = () => {
 <template>
   <!-- 목록 화면(.wx-grid)과 같은 세로 리듬(gap 16px)을 씁니다. -->
   <div class="wx-detail">
+    <!-- ══════════ [4일차] 통신 중 ══════════ -->
+    <!-- 패널 · 캡션은 다른 화면과 같은 것을 씁니다. 여기만 스피너를 새로
+         만들면 로딩 화면이 이 앱과 다른 앱처럼 보입니다. -->
+    <BaseDashboardCard v-if="isLoading" tag="section" class="wx-detail-missing">
+      <p class="wx-label">Loading</p>
+      <p class="wx-detail-missing-text">실시간 관측 데이터를 불러오는 중입니다…</p>
+    </BaseDashboardCard>
+
     <!-- ══════════ 도시를 찾은 경우 ══════════ -->
-    <template v-if="cityData">
+    <template v-else-if="cityData">
       <!-- 목록에서 쓰던 히어로를 그대로 재사용합니다. 넘기는 props 도 같습니다.
            목록과의 유일한 차이는 showOutfit 초깃값(여기는 펼친 채로 시작) 뿐입니다. -->
       <WeatherHero

@@ -9,8 +9,10 @@ let hasFocusedOnce = false
 </script>
 
 <script setup>
-import { ref, computed, watch, watchEffect, inject, onMounted } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useConfigStore } from '@/stores/configStore'
+import { fetchAllCities } from '@/api/weather'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
@@ -51,11 +53,15 @@ import { cities } from '@/data/cities'
    가야 하므로 링크로는 못 하고 useRouter() 가 필요합니다. */
 const router = useRouter()
 
-/* [3일차 변경] 온도 단위는 이제 App.vue 가 쥐고 provide 합니다.
-   2일차에는 이 자리에서 ref('C') 로 선언했지만, °C/°F 버튼이 앱 바로
-   올라가면서 상태도 같이 따라갔습니다. 여기서는 읽기만 합니다.
-   두 번째 인자는 이 화면을 단독으로 띄웠을 때의 기본값입니다. */
-const tempUnit = inject('tempUnit', ref('C'))
+/* [4일차 요구사항 3] 온도 단위 — 이제 store 에서 읽습니다.
+     2일차  이 파일(당시 WeatherParent)이 ref('C') 로 소유
+     3일차  App.vue 로 올라가고 여기서는 inject 로 받음
+     4일차  configStore 로 이사 — 조상을 거치지 않고 직접 집어 옵니다
+
+   화면 입장에서 달라진 건 없습니다. 어느 쪽이든 "단위가 바뀌면 아래
+   computed 들이 다시 계산된다"는 흐름은 같습니다. 값이 어디 사느냐만
+   바뀌었습니다. */
+const configStore = useConfigStore()
 
 /* ────────────────────────────────────────────────
    [1일차 요구사항 1] 배열 렌더링용 날씨 데이터
@@ -65,12 +71,26 @@ const tempUnit = inject('tempUnit', ref('C'))
    상세 페이지도 같은 데이터를 봐야 하는데, 여기 두면 그쪽에서
    가져다 쓸 방법이 없습니다.
 
+   [4일차 변경] 이제 이 Mock 은 "초깃값 겸 대비책" 입니다.
+   화면이 뜨는 즉시 아래 onMounted 가 실시간 데이터로 덮어씁니다.
+
+   빈 배열([])로 시작하지 않은 이유 — 아래 current computed 가
+   weatherList.value[0] 을 읽습니다. 배열이 비어 있으면 undefined 가 되고,
+   템플릿에서 current.icon 을 읽는 순간 화면이 통째로 죽습니다.
+   Mock 을 깔아 두면 응답이 오기 전 잠깐도 정상적인 화면이 보이고,
+   API 가 실패해도 빈 화면 대신 무언가는 남습니다.
+
    [...스프레드]로 복사해서 ref 에 담는 이유 — 아래 removeCity 가
    목록에서 도시를 지웁니다. 원본 배열을 그대로 넘기면 이 화면에서
    지운 도시가 import 한 모듈에서도 사라져, 상세 페이지가 "없는 도시"가
    됩니다. 원본은 원본대로 두고, 화면은 자기 복사본 위에서 움직입니다.
    ──────────────────────────────────────────────── */
 const weatherList = ref([...cities])
+
+/* [4일차 추가] 통신 중 여부. 상태바 문구를 바꾸는 데 씁니다.
+   버튼을 잠그거나 스피너를 띄우지 않는 이유 — Mock 이 이미 깔려 있어
+   화면이 비어 보이지 않고, 응답이 1초 안쪽이라 스피너가 깜빡이기만 합니다. */
+const isLoading = ref(false)
 
 /* ────────────────────────────────────────────────
    [2일차 요구사항 1] 반응형 상태 관리
@@ -172,7 +192,41 @@ const searchBar = ref(null)
         소개 화면에 갔다가 돌아올 때까지 커서를 뺏을 이유는 없습니다. */
 const FOCUS_MIN_WIDTH = 861
 
+/* ────────────────────────────────────────────────
+   [4일차 요구사항] 실시간 기상 데이터 조회
+
+   async/await 로 쓴 이유 — .then().then().catch() 사슬보다 위에서
+   아래로 읽힙니다. "기다렸다가 → 담고 → 실패하면 이렇게" 가 그대로 문장이 됩니다.
+
+   try/catch/finally 세 칸의 역할이 각각 다릅니다.
+     try     성공했을 때 할 일
+     catch   실패했을 때 할 일 — 여기서는 Mock 을 그대로 두고 넘어갑니다
+     finally 성공하든 실패하든 반드시 할 일 — 로딩 표시를 끄는 것
+             catch 안에만 두면, 성공했을 때 로딩이 영원히 안 꺼집니다.
+   ──────────────────────────────────────────────── */
+const loadRealTimeWeather = async () => {
+  isLoading.value = true
+
+  try {
+    // fetchAllCities 는 도시별로 실패를 흡수하므로, 여기까지 예외가
+    // 올라오는 건 코드 자체가 잘못된 경우입니다.
+    weatherList.value = await fetchAllCities()
+    selectedCityInfo.value = '실시간 관측 데이터를 불러왔습니다.'
+    console.log('🟢 [API] 실시간 기상 데이터 동기화 완료', weatherList.value)
+  } catch (error) {
+    // Mock 이 이미 화면에 있으므로 사용자는 빈 화면을 보지 않습니다.
+    selectedCityInfo.value = '실시간 조회에 실패해 저장된 데이터를 표시합니다.'
+    console.error('🔴 [API] 실시간 기상 데이터 조회 실패', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
 onMounted(() => {
+  // 화면이 붙자마자 통신을 시작합니다. await 하지 않고 던져 두는 이유 —
+  // 여기서 기다리면 아래 포커스 처리가 응답이 올 때까지 밀립니다.
+  loadRealTimeWeather()
+
   if (hasFocusedOnce) return
   if (!window.matchMedia(`(min-width: ${FOCUS_MIN_WIDTH}px) and (pointer: fine)`).matches) return
 
@@ -196,13 +250,23 @@ const filteredWeatherList = computed(() => {
 })
 
 /* ────────────────────────────────────────────────
-   [2일차 추가] tempUnit 을 기반으로 파생되는 값들
+   [4일차 요구사항 3] 단위 설정을 화면에 적용
+
    자식은 환산된 결과만 props 로 받습니다. 자식이 각자 환산하면
    같은 계산이 카드 개수만큼 중복되고 computed 캐싱 이점도 사라집니다.
-   ──────────────────────────────────────────────── */
 
-// 섭씨 값을 현재 단위로 환산합니다. computed 안에서만 호출하는 순수 함수.
-const convert = (celsius) => (tempUnit.value === 'C' ? celsius : Math.round((celsius * 9) / 5 + 32))
+   과제 예시는 WeatherCard 안에서 props.cityItem.temp 를 환산하지만,
+   이 앱은 카드 말고도 히어로 · 시간별 · 일별 예보가 같은 단위를 따라가야
+   해서 환산을 부모로 모았습니다. 판정식(configStore.unit === 'fahrenheit')과
+   변환식은 예시 그대로입니다.
+
+   ⚠️ 원본은 항상 섭씨입니다. 환산된 값을 다시 환산하면 숫자가 계속
+      부풀어 오르므로, convert 에는 반드시 원본(city.temp)만 넘깁니다.
+   ──────────────────────────────────────────────── */
+const convert = (celsius) => {
+  if (configStore.unit === 'fahrenheit') return Math.round((celsius * 9) / 5 + 32)
+  return celsius
+}
 
 /* ────────────────────────────────────────────────
    [2일차 추가] 정렬 — 검색 결과 위에 한 겹 더 얹습니다.
@@ -279,11 +343,19 @@ watchEffect(() => {
   console.log(`🤖 [watchEffect] 검색어 '${searchQuery.value}' 로 날씨 API 를 다시 조회합니다.`)
 })
 
-// [2일차 추가] Multi-Source Watch — tempUnit 과 selectedId 를 배열로 묶어 한 번에 감시합니다.
-// [3일차] tempUnit 은 이제 App.vue 에서 inject 로 받아 온 ref 지만, 감시하는 쪽 코드는
-// 그대로입니다. watch 는 "이게 어디서 왔는지"가 아니라 "ref 인지"만 봅니다.
-watch([selectedId, tempUnit], ([newId, newUnit], [oldId, oldUnit]) => {
-  console.log(`🌡️ [multi watch] 도시 ${oldId} -> ${newId} / 단위 °${oldUnit} -> °${newUnit} — 조건이 바뀌어 다시 계산합니다.`)
+/* [2일차 추가] Multi-Source Watch — 단위와 선택된 도시를 배열로 묶어 한 번에 감시합니다.
+   [4일차 변경] 두 번째 감시 대상이 ref 에서 store 의 속성으로 바뀌었습니다.
+
+   ⚠️ watch([selectedId, configStore.unit], ...) 은 동작하지 않습니다.
+      그렇게 쓰면 배열에 담기는 건 반응형 대상이 아니라 그 순간의 문자열
+      'celsius' 입니다. watch 는 값이 아니라 "값을 읽는 방법"을 받아야
+      추적할 수 있습니다.
+
+      그래서 () => configStore.unit 처럼 함수로 감쌉니다. watch 가 이
+      함수를 실행해 보고 그 안에서 읽은 반응형 값을 감시 대상으로 잡습니다.
+      (ref 를 그냥 넘길 수 있었던 건 ref 자체가 "읽는 방법"이기 때문입니다) */
+watch([selectedId, () => configStore.unit], ([newId, newUnit], [oldId, oldUnit]) => {
+  console.log(`🌡️ [multi watch] 도시 ${oldId} -> ${newId} / 단위 ${oldUnit} -> ${newUnit} — 조건이 바뀌어 다시 계산합니다.`)
 })
 
 // [2일차 추가] 정렬 기준이 바뀔 때 로그.
@@ -504,7 +576,9 @@ const toggleFavorite = (city) => {
          App.vue 로 올리지 않고 여기 남겼습니다. /about 에 상태바가 있으면 이상합니다. -->
     <footer class="wx-statusbar">
       <PixelIcon :name="current.icon" :size="18" />
-      <p>{{ selectedCityInfo }}</p>
+      <!-- [4일차] 통신 중에는 그 사실을 먼저 알립니다.
+           문구만 바꾸고 자리는 그대로라 레이아웃이 흔들리지 않습니다. -->
+      <p>{{ isLoading ? '실시간 관측 데이터를 불러오는 중…' : selectedCityInfo }}</p>
     </footer>
   </div>
 </template>
