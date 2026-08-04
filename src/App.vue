@@ -152,29 +152,14 @@ onBeforeUnmount(() => {
              현재 주소와 일치하는 링크에는 Vue Router 가 router-link-active /
              router-link-exact-active 클래스를 자동으로 붙여 줍니다.
              아래 CSS 는 그 클래스를 잡아서 지금 있는 위치를 표시합니다. -->
-        <!-- 라벨은 영문 — 앱 바의 다른 컨트롤(°C/°F · Dark/Light)과 히어로의
-             캡션(Current Location · Hourly Forecast)이 전부 영문이라 맞췄습니다.
+        <!-- 라벨은 영문 — 히어로의 캡션(Current Location · Hourly Forecast)과
+             아래 설정줄이 전부 영문이라 맞췄습니다.
              aria-label 은 한글로 남깁니다. 화면에 안 보이고 스크린 리더가
              읽어 주는 설명이라, 사용자 언어로 적는 편이 낫습니다. -->
         <nav class="wx-nav" aria-label="주요 메뉴">
           <RouterLink to="/" class="wx-nav-item">Dashboard</RouterLink>
           <RouterLink to="/about" class="wx-nav-item">About</RouterLink>
         </nav>
-
-        <div class="wx-appbar-controls">
-          <!-- [4일차 요구사항 2] Navigation Bar 옆에 UnitToggler 배치.
-               3일차까지 여기 직접 박혀 있던 세그먼트를 컴포넌트로 뽑아낸 것이라
-               화면은 그대로입니다. 달라진 것은 App.vue 가 이 버튼에
-               아무것도 넘겨주지 않는다는 점 — 값도 핸들러도 store 에서
-               직접 가져다 씁니다. -->
-          <UnitToggler />
-
-          <!-- 테마 전환 — 이쪽은 App.vue 가 계속 소유합니다 -->
-          <div class="wx-segment" role="group" aria-label="Theme">
-            <button class="wx-segment-btn" :class="{ 'is-on': isDark }" @click="isDark = true">Dark</button>
-            <button class="wx-segment-btn" :class="{ 'is-on': !isDark }" @click="isDark = false">Light</button>
-          </div>
-        </div>
       </header>
 
       <!-- ══════════ [요구사항 2] 메인 콘텐츠 영역 ══════════ -->
@@ -188,6 +173,35 @@ onBeforeUnmount(() => {
       <main class="wx-main">
         <RouterView />
       </main>
+
+      <!-- ══════════ 설정줄 ══════════ -->
+      <!-- [4일차] 단위·테마 토글이 앱 바에서 여기로 내려왔습니다.
+
+           앱 바에 두었을 때는 로고 · 내비 · 알약 두 덩어리가 한 줄에 몰려
+           머리가 무거웠습니다. 지금은 위가 "어디로 갈지"(내비)만, 아래가
+           "어떻게 볼지"(설정)만 맡습니다.
+
+           셸 안이되 RouterView 밖이라 모든 페이지에 그대로 남습니다.
+           상세 페이지에서도 단위를 바꿀 수 있고, 화면을 옮겨도 설정이
+           초기화되지 않습니다. (값 자체는 store 와 App.vue 가 들고 있습니다) -->
+      <footer class="wx-settings">
+        <!-- [4일차 요구사항 2] UnitToggler 배치.
+             App.vue 가 이 컴포넌트에 아무것도 넘겨주지 않습니다 —
+             값도 핸들러도 store 에서 직접 가져다 씁니다. -->
+        <div class="wx-setting">
+          <span class="wx-label wx-setting-label">Unit</span>
+          <UnitToggler />
+        </div>
+
+        <!-- 테마 전환 — 이쪽은 App.vue 가 계속 소유합니다 -->
+        <div class="wx-setting">
+          <span class="wx-label wx-setting-label">Theme</span>
+          <div class="wx-segment" role="group" aria-label="테마">
+            <button class="wx-segment-btn" :class="{ 'is-on': isDark }" @click="isDark = true">Dark</button>
+            <button class="wx-segment-btn" :class="{ 'is-on': !isDark }" @click="isDark = false">Light</button>
+          </div>
+        </div>
+      </footer>
     </div>
   </div>
 </template>
@@ -269,26 +283,16 @@ onBeforeUnmount(() => {
 }
 
 /* ── [3] 앱 바 ────────────────────────────────────────────── */
-/* [3일차 변경] 가운데에 내비게이션이 하나 더 들어왔습니다.
-   space-between 이 셋을 왼쪽·가운데·오른쪽으로 벌려 줍니다.
-   flex-wrap 을 켜 둬서 좁아지면 컨트롤 묶음이 아래 줄로 내려갑니다. */
+/* [4일차 변경] 설정 알약들이 아래 설정줄로 내려가면서 앱 바에는
+   로고와 내비만 남았습니다. 셋을 벌리던 space-between 을 그대로 두면
+   로고와 내비가 양 끝으로 찢어지므로, 내비를 로고 오른쪽에 붙입니다. */
 .wx-appbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
+  gap: 12px 28px;
   margin-bottom: 18px;
   padding: 0 4px;
-}
-
-/* 단위 토글 + 테마 토글을 오른쪽에 나란히 세웁니다. 좁아지면 자연스럽게 줄바꿈. */
-.wx-appbar-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 /* [3일차 변경] <p> 였던 브랜드가 RouterLink(=<a>)가 됐습니다.
@@ -353,7 +357,36 @@ onBeforeUnmount(() => {
    어느 것도 켜지지 않는 게 맞습니다 — 목록도 소개도 아니니까요.
    대신 상세 페이지 안에 "목록으로" 버튼이 있습니다. */
 
-/* ── [5] 세그먼트 (단위 · 테마) ───────────────────────────── */
+/* ── [5] 설정줄 ───────────────────────────────────────────── */
+/* [4일차 추가] 페이지 내용 아래, 셸 맨 끝.
+
+   위쪽 헤어라인 하나로만 본문과 나눕니다. 패널(BaseDashboardCard)로
+   감싸면 대시보드의 상자들과 같은 무게가 되어 "설정이 하나 더 있는 구획"처럼
+   보입니다. 여기는 본문이 아니라 여백에 가까운 자리라 선 하나면 충분합니다. */
+.wx-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+  margin-top: 28px;
+  padding: 20px 4px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* 캡션 + 컨트롤 한 쌍 */
+.wx-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* .wx-label 은 원래 제목 위에 놓이는 캡션이라 아래 여백 14px 을 갖고
+   있습니다. 여기서는 컨트롤과 가로로 나란히 서므로 그 여백을 지웁니다. */
+.wx-setting-label {
+  margin: 0;
+}
+
 /* [4일차] .wx-segment / .wx-segment-btn 은 weather-base.css 로 옮겼습니다.
    단위 토글이 UnitToggler.vue 로 떨어져 나가면서 쓰는 컴포넌트가 둘이 됐고,
    scoped 스타일은 다른 파일까지 닿지 않기 때문입니다.
@@ -380,6 +413,20 @@ onBeforeUnmount(() => {
   .wx-nav-item {
     flex: 1;
     text-align: center;
+  }
+
+  /* [4일차] 설정줄도 폰에서는 두 줄로 쌓습니다.
+     한 줄에 밀어 넣으면 알약이 찌그러지고 캡션이 잘립니다.
+     각 쌍 안에서는 캡션과 컨트롤을 양 끝으로 밀어, 세로로 쌓여도
+     컨트롤의 오른쪽 끝이 나란히 맞습니다. */
+  .wx-settings {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .wx-setting {
+    justify-content: space-between;
   }
 }
 </style>
