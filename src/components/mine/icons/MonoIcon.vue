@@ -95,6 +95,31 @@ defineProps({
       <path d="M9 4.2 12 6l3-1.8 4.2 2.2-1.6 3.4-1.8-.7v9.7H8.2v-9.7l-1.8.7L4.8 6.4z" />
     </template>
 
+    <!-- ▶ 재생 — 속을 채우지 않은 삼각형.
+         이 앱의 아이콘은 전부 선으로만 그려져 있어서, 여기만 채우면
+         작은 크기에서 유독 검은 점처럼 튑니다. -->
+    <template v-else-if="name === 'play'">
+      <path d="M8.5 5.6 18 12l-9.5 6.4z" />
+    </template>
+
+    <!-- ❚❚ 일시정지 -->
+    <template v-else-if="name === 'pause'">
+      <path d="M9.5 6v12M14.5 6v12" />
+    </template>
+
+    <!-- ⏮ 이전 곡 — 'back' 셰브론을 두 겹으로. 같은 각도·같은 두께라
+         내비의 뒤로가기와 한 식구로 보입니다. -->
+    <template v-else-if="name === 'prev'">
+      <path d="M18 6.5 12.5 12 18 17.5" />
+      <path d="M11.5 6.5 6 12l5.5 5.5" />
+    </template>
+
+    <!-- ⏭ 다음 곡 — 이전 곡을 좌우로 뒤집은 것 -->
+    <template v-else-if="name === 'next'">
+      <path d="M6 6.5 11.5 12 6 17.5" />
+      <path d="M12.5 6.5 18 12l-5.5 5.5" />
+    </template>
+
     <!-- ☂️ 우산 -->
     <template v-else-if="name === 'umbrella'">
       <path d="M3.4 12.6a8.6 8.6 0 0 1 17.2 0z" />

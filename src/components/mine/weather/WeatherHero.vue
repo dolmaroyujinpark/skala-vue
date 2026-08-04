@@ -1,6 +1,7 @@
 <script setup>
 import BaseDashboardCard from './BaseDashboardCard.vue'
 import OutfitCard from './OutfitCard.vue'
+import WeatherRadio from './WeatherRadio.vue'
 import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
 import { useConfigStore } from '@/stores/configStore'
 
@@ -99,6 +100,12 @@ const configStore = useConfigStore()
            25도 기준은 과제 스펙이므로 환산값이 아닌 원본 섭씨로 판정합니다. -->
       <p v-if="city.temp >= hotTemp" class="wx-badge is-hot">HOT · {{ hotTemp }}°C AND ABOVE</p>
       <p v-else class="wx-badge is-cool">COOL · BELOW {{ hotTemp }}°C</p>
+
+      <!-- [추가] 오늘 하늘에 맞는 플레이리스트.
+           온도 배지 바로 아래 — 위에서부터 "몇 도인가 → 어떤 하늘인가 →
+           그래서 무엇을 들을까 / 무엇을 입을까" 로 읽힙니다.
+           날씨만 넘기고 재생 상태는 이 컴포넌트가 store 에서 직접 봅니다. -->
+      <WeatherRadio :status="city.status" :icon="city.icon" />
     </div>
 
     <!-- [2일차 직접 추가] 옷차림 추천 펼치기 버튼.
@@ -307,6 +314,13 @@ const configStore = useConfigStore()
     justify-content: flex-start;
   }
 
+  /* 재생 줄도 함께 왼쪽으로. .wx-radio 는 자식(WeatherRadio)의 루트라
+     이 파일의 scope id 도 같이 찍혀 있어서 여기서 잡을 수 있습니다.
+     (.wx-outfit 을 grid-area 로 옮기는 것과 같은 요령) */
+  .wx-radio {
+    align-items: flex-start;
+  }
+
   /* 원래 0 이었습니다. 바로 위에 옷차림 버튼 행이 생기면서 둘이 붙어 버려서
      — 접었을 때 버튼 밑이 곧바로 일출/일몰 줄입니다 — 숨 쉴 자리를 만들었습니다. */
   .wx-suntimes {
@@ -342,6 +356,11 @@ const configStore = useConfigStore()
   .wx-temp,
   .wx-minmax {
     justify-content: center;
+  }
+
+  /* 폰에서는 히어로가 다시 가운데 정렬로 돌아오므로 재생 줄도 되돌립니다 */
+  .wx-radio {
+    align-items: center;
   }
 
   .wx-temp-num {

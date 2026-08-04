@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
 import UnitToggler from '@/components/mine/weather/UnitToggler.vue'
+import RadioEngine from '@/components/mine/weather/RadioEngine.vue'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] App.vue — 앱 셸 (요구사항 2)
@@ -202,6 +203,15 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </footer>
+
+      <!-- ══════════ 라디오 ══════════ -->
+      <!-- 화면에 보이지 않는 재생기입니다. 조작 버튼은 히어로 안에 있고
+           (WeatherRadio), 여기 있는 것은 소리를 내는 부분뿐입니다.
+
+           스플래시·앱 바와 같은 자리에 둔 이유는 같습니다 — RouterView
+           바깥이라 주소가 바뀌어도 살아남습니다. 목록에서 틀어 둔 음악이
+           도시 상세로 들어가도 끊기지 않습니다. -->
+      <RadioEngine />
     </div>
   </div>
 </template>
