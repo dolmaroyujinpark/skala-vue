@@ -17,7 +17,8 @@ import { useRadioStore } from '@/stores/radioStore'
    검색(Data API v3)만 키가 필요한데 우리는 목록을 고정해 두었습니다.
 
    ── 이 컴포넌트가 하는 일은 하나뿐입니다 ─────────────────
-   store 의 값(isPlaying · track)을 보고 iframe 을 그대로 따라가게 하는 것.
+   store 의 값(intent · track)을 보고 iframe 을 그대로 따라가게 하고,
+   YouTube 가 알려 오는 실제 상태를 store 에 돌려주는 것.
    판단은 전부 store 가 하고, 여기는 "YouTube 말로 옮기는 통역"입니다.
    ════════════════════════════════════════════════════════════ */
 
@@ -118,12 +119,13 @@ const createPlayer = () => {
 
    playVideo() 는 막혀도 예외를 던지지 않습니다. 조용히 아무 일도
    일어나지 않을 뿐입니다. 그래서 잠깐 기다렸다가 실제 상태를 물어봅니다.
-   1.5초는 재생기가 첫 조각을 받아 오는 시간을 넉넉히 잡은 값입니다.
+   3초는 재생기가 첫 조각을 받아 오는 시간을 넉넉히 잡은 값입니다 —
+   짧게 잡았더니 아직 시작하지 않았을 뿐인데 막혔다고 오해했습니다.
    ──────────────────────────────────────────────── */
 let autoplayTimer = null
 
 const watchAutoplay = () => {
-  if (!radio.isPlaying) return
+  if (!radio.intent.play) return
 
   autoplayTimer = setTimeout(() => {
     if (!player) return
@@ -147,7 +149,7 @@ const watchAutoplay = () => {
 const applyPlayState = () => {
   if (!player || !isReady) return
 
-  if (radio.isPlaying) {
+  if (radio.intent.play) {
     player.playVideo()
     return
   }
@@ -167,7 +169,7 @@ const syncTrack = () => {
   const wanted = radio.track.id
   if (player.getVideoData?.()?.video_id === wanted) return
 
-  if (radio.isPlaying) player.loadVideoById(wanted)
+  if (radio.intent.play) player.loadVideoById(wanted)
   else player.cueVideoById(wanted)
 }
 
@@ -181,14 +183,16 @@ const syncTrack = () => {
 const onPlayerStateChange = (event) => {
   const state = window.YT.PlayerState
 
-  if (event.data === state.PLAYING) {
+  /* BUFFERING 도 재생 중으로 봅니다. 누르고 소리가 나기까지 0.5초쯤
+     걸리는데, 그 사이 버튼이 ▶ 인 채로 있으면 "안 눌렸나?" 싶어집니다. */
+  if (event.data === state.PLAYING || event.data === state.BUFFERING) {
     errorStreak = 0
     radio.reportPlaying(true)
   } else if (event.data === state.PAUSED) {
     radio.reportPlaying(false)
   } else if (event.data === state.ENDED) {
     // 3시간짜리 플레이리스트라 실제로 여기까지 오는 일은 드뭅니다.
-    // isPlaying 은 true 로 둔 채 곡만 넘기면 아래 watch 가 이어서 틀어 줍니다.
+    // intent 는 play 로 남아 있으므로 곡만 넘기면 이어서 재생됩니다.
     radio.next()
   }
 }
@@ -215,11 +219,14 @@ const onPlayerError = (event) => {
    store → YouTube (내려가는 방향)
    ──────────────────────────────────────────────── */
 
-// ▶/❚❚
+/* ▶/❚❚ — 사용자가 보낸 요청을 따라갑니다.
+   intent 는 누를 때마다 새 객체라, 같은 방향(예: 이미 play 인데 또 play)
+   이어도 watch 가 돌아 재생을 다시 한 번 시도합니다.
+   자동재생이 막힌 뒤 처음 누르는 클릭이 정확히 그 경우입니다. */
 watch(
-  () => radio.isPlaying,
-  async (playing) => {
-    if (playing) await createPlayer()
+  () => radio.intent,
+  async ({ play }) => {
+    if (play) await createPlayer()
     applyPlayState()
   },
 )

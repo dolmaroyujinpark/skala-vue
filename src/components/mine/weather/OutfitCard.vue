@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
+import { findOutfit } from '@/data/outfitTable'
 
 /* ════════════════════════════════════════════════════════════
    [2일차 직접 추가] OutfitCard.vue — 기온별 옷차림 추천
@@ -38,23 +39,14 @@ const props = defineProps({
 })
 
 /* ────────────────────────────────────────────────
-   기상청 생활기상지수 기준 구간표.
-   위에서부터 훑어 내려가다 처음 만나는 min 이 정답이므로 내림차순이어야 합니다.
-   마지막 칸의 min 을 -Infinity 로 둬서 "못 찾는 경우"가 생기지 않게 막았습니다.
+   [정리] 구간표는 data/outfitTable.js 로 옮겼습니다.
+   소개 화면(About)도 같은 표를 읽게 되면서 쓰는 곳이 둘이 됐습니다.
+   두 곳에 같은 숫자를 적어 두면, 구간을 고칠 때 한쪽만 고쳐도
+   아무도 에러를 내지 않고 화면과 설명이 조용히 어긋납니다.
    ──────────────────────────────────────────────── */
-const OUTFIT_TABLE = [
-  { min: 28, label: '한여름', items: ['민소매', '반팔', '반바지', '원피스'] },
-  { min: 23, label: '더움', items: ['반팔', '얇은 셔츠', '반바지', '면바지'] },
-  { min: 20, label: '선선함', items: ['긴팔', '얇은 가디건', '면바지', '청바지'] },
-  { min: 17, label: '쌀쌀함', items: ['얇은 니트', '맨투맨', '가디건', '청바지'] },
-  { min: 12, label: '서늘함', items: ['자켓', '가디건', '야상', '스타킹'] },
-  { min: 9, label: '추움', items: ['트렌치코트', '점퍼', '기모바지'] },
-  { min: 5, label: '많이 추움', items: ['코트', '가죽자켓', '히트텍', '니트'] },
-  { min: -Infinity, label: '한겨울', items: ['패딩', '두꺼운 코트', '목도리', '기모'] },
-]
 
 // [computed] 기온이 바뀔 때만 다시 계산됩니다. 그 외에는 캐싱된 값을 재사용.
-const outfit = computed(() => OUTFIT_TABLE.find((row) => props.celsius >= row.min))
+const outfit = computed(() => findOutfit(props.celsius))
 
 /* [computed] 비가 오면 우산을 따로 안내합니다.
 

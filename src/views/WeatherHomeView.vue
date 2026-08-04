@@ -9,7 +9,7 @@ let hasFocusedOnce = false
 </script>
 
 <script setup>
-import { ref, computed, watch, watchEffect, onMounted } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/configStore'
 import { fetchAllCities, fetchCityWeather } from '@/api/weather'
@@ -270,10 +270,64 @@ const loadForecastFor = async (cityId) => {
 // immediate 를 켜서 화면이 처음 뜰 때의 기본 선택(서울)도 함께 처리합니다.
 watch(selectedId, (cityId) => loadForecastFor(cityId), { immediate: true })
 
+/* ────────────────────────────────────────────────
+   카드 두 줄 높이를 카드에게 직접 물어봅니다
+
+   .wx-cards 는 딱 두 줄만 보여 주고 나머지는 스크롤합니다. 그 높이를
+   --wx-card-row 라는 숫자로 손으로 적어 두었는데(294px), 카드 한 장의
+   실제 높이는 그때그때 달라집니다 — 도시 이름이나 상태 문구가 길어
+   한 줄 더 접히면(예: '구름 한가득') 카드가 몇 px 자랍니다.
+   그러면 둘째 줄이 아래에서 싹둑 잘린 채 보입니다.
+
+   그래서 숫자를 짐작하지 않고 첫 카드에게 물어봅니다. 글자 크기나
+   여백을 건드려도, 폰트가 늦게 로드돼도 알아서 맞습니다.
+
+   ResizeObserver 는 "이 요소의 크기가 바뀌면 알려 줘" 라고 브라우저에
+   부탁하는 API 입니다. watch 는 값이 바뀔 때 도는데, 여기서 필요한 것은
+   값이 아니라 그려진 결과라서 이쪽을 씁니다.
+   ──────────────────────────────────────────────── */
+const cardsBox = ref(null)
+let cardObserver = null
+
+const measureCardRow = () => {
+  const box = cardsBox.value
+  const firstCard = box?.firstElementChild
+  if (!firstCard) return
+
+  const height = Math.ceil(firstCard.getBoundingClientRect().height)
+  if (!height) return
+
+  // 같은 값을 다시 쓰지 않습니다. 스타일을 건드리면 크기가 바뀌고,
+  // 그러면 이 관찰자가 또 불려서 무한히 돌 수 있습니다.
+  if (box.style.getPropertyValue('--wx-card-row') === `${height}px`) return
+  box.style.setProperty('--wx-card-row', `${height}px`)
+}
+
+/* 관찰 대상은 둘입니다.
+     상자   — 폭이 바뀌면 열 수가 달라지고, 카드 폭이 달라지면 높이도 달라집니다
+     첫 카드 — 상자는 max-height 로 묶여 있어서, 카드만 자라면 상자 크기는
+               그대로입니다. 그래서 카드도 따로 봐야 합니다.
+   검색·정렬·삭제로 목록이 다시 그려지면 첫 카드가 다른 DOM 요소로
+   바뀌므로, 그때마다 다시 걸어 줍니다. */
+const watchCardBox = () => {
+  if (!cardObserver || !cardsBox.value) return
+
+  cardObserver.disconnect()
+  cardObserver.observe(cardsBox.value)
+
+  const firstCard = cardsBox.value.firstElementChild
+  if (firstCard) cardObserver.observe(firstCard)
+
+  measureCardRow()
+}
+
 onMounted(() => {
   // 화면이 붙자마자 통신을 시작합니다. await 하지 않고 던져 두는 이유 —
   // 여기서 기다리면 아래 포커스 처리가 응답이 올 때까지 밀립니다.
   loadRealTimeWeather()
+
+  cardObserver = new ResizeObserver(measureCardRow)
+  watchCardBox()
 
   if (hasFocusedOnce) return
   if (!window.matchMedia(`(min-width: ${FOCUS_MIN_WIDTH}px) and (pointer: fine)`).matches) return
@@ -359,6 +413,16 @@ const displayWeatherList = computed(() =>
     isFavorite: isFavorite(city.id),
   })),
 )
+
+/* 목록이 다시 그려지면 첫 카드가 다른 DOM 요소가 됩니다.
+   nextTick 은 "Vue 가 화면을 다 고친 다음에" 를 뜻합니다 — 그 전에 재면
+   아직 옛 카드를 보게 됩니다. */
+watch(displayWeatherList, () => nextTick(watchCardBox))
+
+onBeforeUnmount(() => {
+  cardObserver?.disconnect()
+  cardObserver = null
+})
 
 // [2일차 추가] 즐겨찾기 개수 — 목록이 바뀔 때만 다시 셉니다.
 const favoriteCount = computed(() => favoriteIds.value.length)
@@ -604,7 +668,7 @@ const toggleFavorite = (city) => {
         </label>
       </div>
 
-      <div class="wx-cards">
+      <div ref="cardsBox" class="wx-cards">
         <!-- [3일차 변경] @click-detail 이 이제 도시 객체를 통째로 받습니다.
              2일차에는 (이름, 상태) 두 개를 받아 alert 문장을 만들었지만,
              라우터로 보내려면 필요한 건 id 입니다. 다른 이벤트들(select-card ·
@@ -801,8 +865,14 @@ const toggleFavorite = (city) => {
 
    padding-right 는 스크롤바가 카드 위에 겹쳐 그려지는 것을 막습니다. */
 .wx-cards {
-  /* 아이콘 46 + 도시 46 + 기온 38 + 상태 31 + 배지 40 + 버튼 52
-     + 상하 패딩 39 + 테두리 2 = 294 */
+  /* 카드 한 장의 높이. 아래 max-height 가 이 값으로 두 줄을 계산합니다.
+
+     이 숫자는 첫 화면을 그릴 때만 쓰이는 초깃값입니다. 붙자마자
+     measureCardRow 가 실제 카드를 재서 이 변수를 덮어씁니다 —
+     도시 이름이나 상태 문구가 길어 카드가 한 줄 더 자라도(예: '구름 한가득')
+     둘째 줄이 잘리지 않게 하기 위해서입니다.
+     (아이콘 46 + 도시 46 + 기온 38 + 상태 31 + 배지 40 + 버튼 52
+      + 상하 패딩 39 + 테두리 2 = 294 로 잡은 값) */
   --wx-card-row: 294px;
 
   display: grid;

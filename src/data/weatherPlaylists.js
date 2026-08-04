@@ -34,6 +34,7 @@ const PLAYLISTS = {
   sun: {
     key: 'sun',
     caption: 'SUNNY',
+    weather: '맑은 날',
     tracks: [
       { id: 'fY4wgaEb5TY', title: '수현이 고른 여름 낮의 악뮤' },
       { id: 'QY0C7WO13d0', title: '기분이 맑아지는 국내 음악' },
@@ -45,6 +46,7 @@ const PLAYLISTS = {
   cloud: {
     key: 'cloud',
     caption: 'CLOUDY',
+    weather: '구름 낀 날',
     tracks: [
       { id: 'RBFdO-iFCm4', title: '휴식이 필요할 때, 존박' },
       { id: 'CrfsnUklH4k', title: '문득 인디음악에 파묻히고 싶을 때' },
@@ -55,6 +57,7 @@ const PLAYLISTS = {
   rain: {
     key: 'rain',
     caption: 'RAINY',
+    weather: '비 오는 날',
     tracks: [
       { id: 'IzOeYCGkg10', title: '기억은 쏟아버린 구슬처럼, 잔나비' },
       { id: 'ulOXj1UJd68', title: '빈지노 노래 모음' },
@@ -66,6 +69,7 @@ const PLAYLISTS = {
   thunder: {
     key: 'thunder',
     caption: 'STORM',
+    weather: '천둥 · 장마',
     tracks: [
       /* 비와 천둥 양쪽에 같은 곡이 들어갑니다. 갈래마다 목록을 따로 두는
          구조라 중복이 허용됩니다 — 같은 곡이라도 어느 하늘에서 몇 번째로
@@ -80,6 +84,7 @@ const PLAYLISTS = {
   snow: {
     key: 'snow',
     caption: 'SNOWY',
+    weather: '눈 오는 날',
     tracks: [
       { id: 'Kk9e-zkOk88', title: '겨울을 좋아하는 사람들' },
       { id: 'q-ZFpbrokMg', title: '퍼펙트 크리스마스 캐롤' },
@@ -90,6 +95,7 @@ const PLAYLISTS = {
   mist: {
     key: 'mist',
     caption: 'MISTY',
+    weather: '안개 · 흐릿한 날',
     tracks: [
       { id: 'LwJ5IUWLACw', title: '검정치마, 카더가든의 새벽' },
       { id: 'hiMoy4pyAl0', title: '선선한 새벽, 혼자 걷고 싶을 때' },
@@ -134,3 +140,14 @@ export const toMoodKey = (status = '', icon = 'sun') => {
 
 /* 없는 키로 물어봐도 화면이 깨지지 않도록 맑음으로 받칩니다. */
 export const getPlaylist = (moodKey) => PLAYLISTS[moodKey] ?? PLAYLISTS.sun
+
+/* 소개 화면(About)이 "어떤 하늘에 몇 곡"을 표로 보여 줄 때 씁니다.
+   곡 수를 손으로 적지 않고 여기서 세는 이유 — 위 목록에 한 곡 더하면
+   소개 화면의 숫자도 같이 맞춰집니다. (About 이 도시 수를 세는 것과 같은 방식) */
+export const playlistSummary = Object.values(PLAYLISTS).map(({ key, caption, weather, tracks }) => ({
+  key,
+  caption,
+  weather,
+  count: tracks.length,
+  lead: tracks[0].title, // 그 하늘의 기본값 = 첫 곡
+}))

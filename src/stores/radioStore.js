@@ -30,16 +30,26 @@ export const useRadioStore = defineStore('radio', () => {
   const moodKey = ref('sun')
   const trackIndex = ref(0)
 
-  /* 원하는 상태입니다. 실제로 소리가 나는지가 아니라 "틀어 달라고 했는가" —
-     RadioEngine 이 이 값을 보고 따라옵니다. 반대로 YouTube 쪽 사정으로
-     멈추면 엔진이 이 값을 되돌립니다.
+  /* ── 재생 상태를 둘로 나눈 이유 ────────────────────────────
+     처음에는 isPlaying 하나로 "틀어 달라는 요청"과 "실제로 나는 소리"를
+     같이 표현했습니다. 그랬더니 자동재생이 막혔을 때 버튼이 거짓말을
+     했습니다 — 소리는 안 나는데 화면에는 ❚❚(재생 중)가 떠 있어서,
+     한 번 누르면 "정지"가 되고 두 번 눌러야 소리가 났습니다.
 
-     처음부터 true — 앱을 켜자마자 틀어 봅니다.
-     ⚠️ 브라우저는 사용자가 한 번도 건드리지 않은 페이지에서 소리가 나는 것을
-        막습니다(자동재생 정책). 막히면 RadioEngine 이 실제 상태를 되돌려
-        주므로 ▶ 가 그대로 남고, 한 번 누르면 재생됩니다.
-        즉 이 값은 "틀어 달라는 요청"이지 "반드시 난다"가 아닙니다. */
-  const isPlaying = ref(true)
+     그래서 갈라 두었습니다.
+       intent     우리가 원하는 것    → RadioEngine 이 따라갑니다
+       isPlaying  지금 실제 상태      → 화면(▶/❚❚·이퀄라이저)이 따라갑니다
+     ────────────────────────────────────────────────────────── */
+
+  /* intent 를 boolean 이 아니라 객체로 두는 이유 —
+     자동재생이 막힌 상황에서 사용자가 ▶ 를 누르면 "원하는 값"은 이미
+     true 라서 바뀌는 것이 없고, 그러면 watch 가 돌지 않아 아무 일도
+     일어나지 않습니다. 누를 때마다 새 객체를 만들면 값이 같아도
+     "요청이 한 번 더 들어왔다"는 사실이 전달됩니다. */
+  const intent = ref({ play: true, seq: 0 })
+
+  /* 실제로 소리가 나고 있는가. YouTube 가 알려 주는 값만 들어옵니다. */
+  const isPlaying = ref(false)
 
   /* 자동재생이 막혔는지 여부. 화면에서 안내를 띄우지는 않고,
      콘솔 로그와 (혹시 나중에 필요하면) 조건부 문구용으로만 둡니다. */
@@ -62,10 +72,17 @@ export const useRadioStore = defineStore('radio', () => {
     trackIndex.value = 0
   }
 
-  function toggle() {
-    // 눌렀다는 것은 곧 사용자 조작 — 자동재생이 막혔던 상태도 여기서 풀립니다.
+  /* 재생기에 보내는 요청. seq 를 올려 늘 새 객체를 만듭니다. */
+  function request(play) {
     isBlocked.value = false
-    isPlaying.value = !isPlaying.value
+    intent.value = { play, seq: intent.value.seq + 1 }
+  }
+
+  /* 지금 "실제로" 나고 있으면 멈추고, 아니면 튼다 —
+     원하는 값이 아니라 실제 상태를 뒤집는 것이 핵심입니다.
+     자동재생이 막혀 있을 때 한 번만 눌러도 소리가 나는 이유입니다. */
+  function toggle() {
+    request(!isPlaying.value)
   }
 
   /* 목록 끝에서 다음을 누르면 처음으로 돌아옵니다 (% 나머지 연산).
@@ -80,18 +97,16 @@ export const useRadioStore = defineStore('radio', () => {
     trackIndex.value = (trackIndex.value - 1 + total) % total
   }
 
-  /* 엔진이 알려 오는 실제 재생 상태. 사용자가 YouTube 안에서 멈췄거나
-     자동재생이 막혔을 때, 화면의 ▶/❚❚ 가 거짓말하지 않게 해 줍니다. */
+  /* 엔진이 알려 오는 실제 재생 상태. 화면의 ▶/❚❚ 는 이 값만 봅니다. */
   function reportPlaying(playing) {
     isPlaying.value = playing
   }
 
-  /* 자동재생이 막혔을 때 엔진이 알려 줍니다. isPlaying 은 false 로 되돌아가고,
-     화면에는 ▶ 가 남습니다 — 사용자가 한 번 누르면 그때부터 정상입니다. */
+  /* 자동재생이 막혔을 때 엔진이 알려 줍니다. 화면에는 ▶ 가 그대로 남고,
+     사용자가 한 번 누르면(=사용자 조작) 그때부터 정상입니다. */
   function reportBlocked() {
     isBlocked.value = true
-    isPlaying.value = false
   }
 
-  return { moodKey, trackIndex, isPlaying, isBlocked, playlist, track, syncMood, toggle, next, prev, reportPlaying, reportBlocked }
+  return { moodKey, trackIndex, intent, isPlaying, isBlocked, playlist, track, syncMood, request, toggle, next, prev, reportPlaying, reportBlocked }
 })
