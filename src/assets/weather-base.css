@@ -136,6 +136,35 @@ body {
   background: var(--hover);
 }
 
+/* [3일차 추가] 알약 버튼 — 원래 WeatherCard 의 .wx-detail-btn 하나뿐이던 모양입니다.
+   라우터가 붙으면서 "다른 화면으로 보내는 버튼"이 여러 곳에 생겼습니다.
+     · WeatherDetailView  — 목록으로 돌아가기
+     · WeatherAboutView   — 대시보드로 이동
+     · NotFoundView       — 메인으로 이동
+   화면마다 버튼을 새로 그리면 같은 역할의 버튼이 네 가지 모습이 됩니다.
+   그래서 .wx-detail-btn 의 규칙을 그대로 옮겨 공용 유틸로 올렸습니다.
+   (테두리 · 자간 · hover 전부 동일 — 폭만 카드처럼 100% 로 늘리지 않습니다) */
+.wx-action {
+  display: inline-block;
+  padding: 9px 22px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wx-action:hover {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
 /* ────────────────────────────────────────────────────────────
    [4] 공유 애니메이션
    scoped <style> 안에 선언하면 Vue 가 keyframes 이름까지 해싱하기 때문에

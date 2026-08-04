@@ -101,8 +101,11 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card', 'toggle-
     <p v-if="cityItem.temp >= hotTemp" class="wx-badge is-hot">HOT</p>
     <p v-else class="wx-badge is-cool">COOL</p>
 
-    <!-- [1일차 요구사항 4] .stop 이 없으면 카드의 @click 까지 함께 실행됩니다 (이벤트 버블링) -->
-    <button class="wx-detail-btn" @click.stop="emit('click-detail', cityItem.name, cityItem.status)">Details</button>
+    <!-- [1일차 요구사항 4] .stop 이 없으면 카드의 @click 까지 함께 실행됩니다 (이벤트 버블링)
+         [3일차 변경] 2일차에는 (이름, 상태) 두 개를 실어 올려 부모가 alert 문장을 만들었습니다.
+         이제 부모는 이 신호를 받아 상세 페이지로 이동합니다. 필요한 건 id 라서
+         나머지 이벤트들과 똑같이 도시 객체를 통째로 올려보냅니다. -->
+    <button class="wx-detail-btn" @click.stop="emit('click-detail', cityItem)">Details</button>
   </BaseDashboardCard>
 </template>
 

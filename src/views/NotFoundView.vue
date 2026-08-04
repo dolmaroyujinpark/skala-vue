@@ -1,90 +1,96 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
+import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
+
+/* ════════════════════════════════════════════════════════════
+   [3일차 과제] NotFoundView.vue — Catch-all Route (요구사항 1)
+
+   ── 디자인 ────────────────────────────────────────────────
+   404 화면이라고 따로 만들지 않았습니다. 대시보드와 같은 패널
+   (BaseDashboardCard), 같은 캡션(.wx-label), 같은 버튼(.wx-action),
+   같은 아이콘(MonoIcon)을 씁니다.
+
+   길을 잘못 든 화면일수록 "여기가 아직 그 앱 안"이라는 게 보여야 합니다.
+   갑자기 다른 색과 다른 글꼴이 나오면 사용자는 앱이 깨졌다고 읽습니다.
+   히어로에 쓰던 큰 라인 아이콘을 그대로 쓴 것도 같은 이유입니다.
+   ════════════════════════════════════════════════════════════ */
+
+const route = useRoute()
 const router = useRouter()
 
+/* name 으로 이동합니다. 경로 문자열('/')을 직접 쓰면 나중에 라우트 경로가
+   바뀔 때 이런 곳들을 전부 찾아 고쳐야 합니다. 이름은 잘 안 바뀝니다. */
 const goHome = () => {
   router.push({ name: 'WeatherHome' })
 }
 </script>
 
 <template>
-  <!-- 전체 화면을 중앙 정렬하기 위한 래퍼 -->
-  <div class="not-found-container">
-    <div class="not-found-content">
-      <!-- 시각적 포인트를 위한 아이콘 또는 큰 텍스트 (옵션) -->
-      <div class="error-icon">☀️❓</div>
+  <div class="wx-notfound">
+    <BaseDashboardCard tag="section" class="wx-notfound-panel">
+      <template #header>
+        <p class="wx-label">404 · Route not found</p>
+      </template>
 
-      <h2>페이지를 찾을 수 없습니다.</h2>
-      <p>요청하신 주소가 존재하지 않거나,<br />아직 개발되지 않았습니다.</p>
+      <!-- 히어로가 쓰는 것과 같은 큰 라인 아이콘.
+           비 오는 아이콘을 골랐습니다 — 이 화면의 분위기에 맞습니다. -->
+      <MonoIcon name="rain" :size="96" :width="1.1" class="wx-notfound-icon" />
 
-      <!-- 포인트 컬러가 적용된 버튼 -->
-      <button class="home-button" @click="goHome">날씨 메인으로 이동</button>
-    </div>
+      <h2 class="wx-notfound-title">여긴 관측소가 없습니다</h2>
+
+      <p class="wx-notfound-text">
+        요청하신 주소 <strong>{{ route.fullPath }}</strong> 는 이 앱에 정의되어 있지 않습니다.
+      </p>
+
+      <!-- 두 갈래 길을 줍니다. 주소를 잘못 친 경우와 없는 화면을 찾는 경우가 다릅니다. -->
+      <div class="wx-notfound-actions">
+        <button class="wx-action" @click="goHome">Dashboard</button>
+        <RouterLink to="/about" class="wx-action">About</RouterLink>
+      </div>
+    </BaseDashboardCard>
   </div>
 </template>
 
-<!-- Scoped CSS로 이 컴포넌트에만 스타일 적용 -->
 <style scoped>
-.not-found-container {
+/* 배치만 정합니다. 패널 · 캡션 · 버튼 · 색은 전부 기존 것을 물려받습니다. */
+.wx-notfound {
   display: flex;
   justify-content: center;
-  align-items: center;
-  /* 부모 요소(예: App.vue)에서 남은 높이를 다 쓰도록 설정 */
-  min-height: 80vh;
-  background-color: #f8f9fa; /* 아주 연한 회색 배경 */
-  font-family: 'Noto Sans KR', sans-serif; /* 기본 폰트 설정 (옵션) */
 }
 
-.not-found-content {
+.wx-notfound-panel {
+  width: 100%;
+  /* 히어로 폭(340px)보다 넉넉하게, 그러나 셸 전체를 다 쓰지는 않게 */
+  max-width: 520px;
+  padding: 40px 28px;
   text-align: center;
-  background-color: #ffffff;
-  padding: 50px;
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 은은한 그림자 */
-  border: 1px solid #e9ecef;
 }
 
-.error-icon {
-  font-size: 5rem; /* 아주 크게 */
-  margin-bottom: 20px;
+.wx-notfound-icon {
+  color: var(--dimmer);
 }
 
-h2 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #343a40; /* 짙은 회색 */
-  margin-bottom: 15px;
-  letter-spacing: -0.5px;
+.wx-notfound-title {
+  margin: 18px 0 0;
+  font-size: 24px;
+  font-weight: 400;
 }
 
-p {
-  font-size: 1.1rem;
-  color: #6c757d; /* 중간 회색 */
-  line-height: 1.6;
-  margin-bottom: 35px;
+/* 한글 문장이라 15px (상태바 · 소개 화면과 같은 기준) */
+.wx-notfound-text {
+  margin: 10px 0 26px;
+  color: var(--dim);
+  font-size: 15px;
+  /* 긴 주소가 들어와도 패널 밖으로 넘치지 않게 */
+  overflow-wrap: anywhere;
 }
 
-.home-button {
-  background-color: #007bff; /* 날씨 앱 포인트 컬러 (파란색) */
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  font-size: 1.1rem;
-  font-weight: 500;
-  border-radius: 30px; /* 둥근 버튼 */
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-}
-
-/* Hover 및 Active 효과 */
-.home-button:hover {
-  background-color: #0056b3; /* 조금 짙은 파란색 */
-}
-
-.home-button:active {
-  transform: scale(0.98); /* 클릭 시 살짝 눌리는 효과 */
+.wx-notfound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 </style>
