@@ -12,7 +12,7 @@ let hasFocusedOnce = false
 import { ref, computed, watch, watchEffect, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/configStore'
-import { fetchAllCities } from '@/api/weather'
+import { fetchAllCities, fetchCityWeather } from '@/api/weather'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
@@ -213,6 +213,15 @@ const loadRealTimeWeather = async () => {
     weatherList.value = await fetchAllCities()
     selectedCityInfo.value = '실시간 관측 데이터를 불러왔습니다.'
     console.log('🟢 [API] 실시간 기상 데이터 동기화 완료', weatherList.value)
+
+    /* ⚠️ 방금 목록을 통째로 갈아끼웠습니다.
+       아래 watch(immediate) 가 이미 선택 도시의 예보를 붙여 놨더라도,
+       그 결과가 여기서 덮여 사라집니다. 그런데 loadedForecastIds 에는
+       "받아 왔다"고 남아 있어서 다시 부르지도 않습니다 — 예보 스트립이
+       영영 비는 상태가 됩니다.
+       기억을 지우고 다시 챙기게 해서 그 틈을 막습니다. */
+    loadedForecastIds.clear()
+    loadForecastFor(selectedId.value)
   } catch (error) {
     // Mock 이 이미 화면에 있으므로 사용자는 빈 화면을 보지 않습니다.
     selectedCityInfo.value = '실시간 조회에 실패해 저장된 데이터를 표시합니다.'
@@ -221,6 +230,45 @@ const loadRealTimeWeather = async () => {
     isLoading.value = false
   }
 }
+
+/* ────────────────────────────────────────────────
+   선택된 도시의 예보 — 필요해질 때 한 번만
+
+   목록 조회는 /weather 만 부르므로 카드에는 예보가 없습니다. 예보 스트립은
+   선택된 한 도시만 그리니, 그 도시가 정해진 뒤에 따로 가져옵니다.
+
+   loadedForecastIds 로 이미 받아 온 도시를 기억합니다. 없으면 사용자가
+   카드를 오갈 때마다 같은 요청이 반복되고, 몇 번 왔다 갔다 하면
+   분당 한도에 걸립니다.
+
+   Set 을 쓰는 이유 — "이 id 가 들어 있나"만 물어보면 되는 자료라
+   배열의 includes 보다 의도가 분명합니다.
+   ──────────────────────────────────────────────── */
+const loadedForecastIds = new Set()
+
+const loadForecastFor = async (cityId) => {
+  if (!cityId || loadedForecastIds.has(cityId)) return
+
+  // 먼저 표시해 둡니다. 응답을 기다리는 사이 사용자가 같은 카드를 다시
+  // 눌러도 두 번째 요청이 나가지 않게 하기 위해서입니다.
+  loadedForecastIds.add(cityId)
+
+  try {
+    const detailed = await fetchCityWeather(cityId)
+
+    // 목록의 해당 도시만 교체합니다. map 으로 새 배열을 만들어 대입하면
+    // computed 들이 확실히 다시 계산됩니다.
+    weatherList.value = weatherList.value.map((city) => (city.id === cityId ? detailed : city))
+  } catch (error) {
+    // 실패하면 다음에 다시 시도할 수 있도록 표시를 되돌립니다.
+    loadedForecastIds.delete(cityId)
+    console.error(`🔴 [${cityId}] 예보 조회 실패`, error)
+  }
+}
+
+// 선택이 바뀔 때마다 그 도시의 예보를 챙깁니다.
+// immediate 를 켜서 화면이 처음 뜰 때의 기본 선택(서울)도 함께 처리합니다.
+watch(selectedId, (cityId) => loadForecastFor(cityId), { immediate: true })
 
 onMounted(() => {
   // 화면이 붙자마자 통신을 시작합니다. await 하지 않고 던져 두는 이유 —
@@ -279,18 +327,27 @@ const convert = (celsius) => {
 const sortedWeatherList = computed(() => {
   const list = [...filteredWeatherList.value]
 
-  if (sortBy.value === 'temp') {
-    // 기온 높은 순. 같으면 이름순으로 한 번 더 갈라 순서가 들쭉날쭉하지 않게 합니다.
-    return list.sort((a, b) => b.temp - a.temp || a.name.localeCompare(b.name, 'ko'))
+  /* 사용자가 고른 기준. 기온순일 때 값이 같으면 이름순으로 한 번 더 갈라
+     순서가 들쭉날쭉하지 않게 합니다. */
+  const byChosenOrder = (a, b) => {
+    if (sortBy.value === 'temp') return b.temp - a.temp || a.name.localeCompare(b.name, 'ko')
+    // 기본값: 이름 가나다순. localeCompare 에 'ko' 를 줘야 한글이 사전 순으로 정렬됩니다.
+    return a.name.localeCompare(b.name, 'ko')
   }
 
-  if (sortBy.value === 'favorite') {
-    // 즐겨찾기를 앞으로. Boolean 을 빼면 true(1) 가 앞서므로 b - a 순서입니다.
-    return list.sort((a, b) => isFavorite(b.id) - isFavorite(a.id) || a.name.localeCompare(b.name, 'ko'))
-  }
+  /* [변경] 즐겨찾기는 정렬 "옵션" 이 아니라 항상 먼저입니다.
 
-  // 기본값: 이름 가나다순. localeCompare 에 'ko' 를 줘야 한글이 사전 순으로 정렬됩니다.
-  return list.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+     전에는 드롭다운에 '즐겨찾기 먼저' 가 하나 더 있었습니다. 그런데 그러면
+     이름순을 고른 순간 즐겨찾기가 목록 한가운데로 흩어집니다. 별을 누르는
+     행동의 의미가 "이건 자주 보니까 위에 둬" 인데, 정렬을 바꿀 때마다
+     그 약속이 깨지는 셈입니다.
+
+     그래서 즐겨찾기를 1순위 키로 올리고 사용자가 고른 기준을 2순위로
+     내렸습니다. 도시가 20개로 늘면서 더 중요해졌습니다 — 카드 영역을
+     스크롤하지 않아도 즐겨찾기는 항상 맨 위에 보입니다.
+
+     Boolean 끼리 빼면 true 는 1, false 는 0 이라 b - a 가 "true 를 앞으로" 입니다. */
+  return list.sort((a, b) => isFavorite(b.id) - isFavorite(a.id) || byChosenOrder(a, b))
 })
 
 // 화면에 그릴 카드 목록 — 정렬된 목록 위에 단위 환산과 즐겨찾기 여부를 얹은 computed.
@@ -361,7 +418,8 @@ watch([selectedId, () => configStore.unit], ([newId, newUnit], [oldId, oldUnit])
 // [2일차 추가] 정렬 기준이 바뀔 때 로그.
 // 여기서 직접 정렬하지 않는다는 점이 중요합니다. 정렬은 sortedWeatherList(computed)가
 // 알아서 다시 하고, watch 는 "바뀌었다"는 사실에 곁들이는 부수효과(로그)만 맡습니다.
-const SORT_LABEL = { name: '이름순', temp: '기온 높은순', favorite: '즐겨찾기 먼저' }
+// '즐겨찾기 먼저' 는 선택지에서 뺐습니다 — 이제 조건이 아니라 항상 적용됩니다.
+const SORT_LABEL = { name: '이름순', temp: '기온 높은순' }
 
 watch(sortBy, (newSort, oldSort) => {
   console.log(`🔀 [watch] 정렬 기준 변경: ${SORT_LABEL[oldSort]} -> ${SORT_LABEL[newSort]}`)
@@ -542,7 +600,6 @@ const toggleFavorite = (city) => {
           <select v-model="sortBy" class="wx-sort-select">
             <option value="name">이름순</option>
             <option value="temp">기온 높은순</option>
-            <option value="favorite">즐겨찾기 먼저</option>
           </select>
         </label>
       </div>
@@ -635,6 +692,9 @@ const toggleFavorite = (city) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* 카드 영역이 자기 max-height 안에서 스크롤하도록, 이 열이 내용만큼
+     늘어나려는 성질(min-height: auto 기본값)을 풀어 줍니다. */
+  min-height: 0;
 }
 
 /* ── [3] 카드 격자 ────────────────────────────────────────── */
@@ -717,10 +777,61 @@ const toggleFavorite = (city) => {
   outline: none;
 }
 
+/* 도시가 20개가 되면서 카드가 5줄까지 늘었습니다. 그대로 두면 오른쪽 열만
+   길어져 왼쪽 히어로와 높이가 크게 어긋나고, 아래 예보 스트립이 한참
+   밀려납니다.
+
+   셸 폭(1120px)은 넓히지 않는다는 원칙은 유지하고, 카드 영역만 자체
+   스크롤을 갖게 했습니다. 즐겨찾기가 항상 맨 앞에 오므로 자주 보는 도시는
+   스크롤 없이 바로 보입니다.
+
+   ── 높이를 정하는 기준을 두 번 바꿨습니다 ──
+   1) max-height: 46vh   화면 높이 기준. 히어로 높이와 상관이 없어서
+                         두 열의 아래끝이 어긋났습니다.
+   2) flex: 1            히어로 높이에 맞춤. 아래끝은 맞았지만 히어로가
+                         짧은 화면에서는 카드가 한 줄 반만 보였습니다.
+   3) 카드 2줄 고정      지금 방식. "몇 장을 보여줄지"를 직접 정합니다.
+
+   오른쪽 열은 4칸이라 2줄이면 8장입니다. 즐겨찾기가 항상 맨 앞에 오므로
+   자주 보는 도시는 스크롤 없이 이 8칸 안에 들어옵니다.
+
+   ⚠️ --wx-card-row 는 카드 한 장의 높이입니다. 카드 안의 글자 크기나
+      여백을 건드리면 이 값도 같이 맞춰야 잘리는 줄이 생기지 않습니다.
+      보이는 줄 수를 바꾸려면 아래 calc 의 2 만 고치면 됩니다.
+
+   padding-right 는 스크롤바가 카드 위에 겹쳐 그려지는 것을 막습니다. */
 .wx-cards {
+  /* 아이콘 46 + 도시 46 + 기온 38 + 상태 31 + 배지 40 + 버튼 52
+     + 상하 패딩 39 + 테두리 2 = 294 */
+  --wx-card-row: 294px;
+
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  /* 줄 높이가 내용에 따라 늘어나지 않게 고정합니다. 안 그러면 카드가
+     적을 때 한 장이 세로로 길쭉하게 늘어납니다. */
+  grid-auto-rows: min-content;
   gap: 12px;
+  /* 2줄 + 그 사이 gap 하나 */
+  max-height: calc(var(--wx-card-row) * 2 + 12px);
+  padding-right: 4px;
+  overflow-y: auto;
+  /* 스크롤이 끝에 닿았을 때 페이지 전체가 따라 움직이는 것을 막습니다 */
+  overscroll-behavior: contain;
+}
+
+/* 스크롤바도 이 앱의 톤을 따르게 합니다. 기본 스크롤바는 OS 위젯이라
+   다크 모드에서 특히 튑니다. (WebKit 계열 전용 — Firefox 는 기본값 유지) */
+.wx-cards::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wx-cards::-webkit-scrollbar-thumb {
+  background: var(--line-hi);
+  border-radius: 999px;
+}
+
+.wx-cards::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* [2일차 요구사항 4-c] 검색 결과 없음 안내. 한글 문장이라 15px. */
@@ -812,6 +923,16 @@ const toggleFavorite = (city) => {
   /* 이 폭에서 예보를 2열로 두면 한 칸이 50px 남짓이라 날짜·온도가 잘립니다 */
   .wx-forecasts {
     grid-template-columns: 1fr;
+  }
+
+  /* 좁은 화면에서 안쪽 스크롤은 손가락이 어느 쪽을 미는지 헷갈리게 만듭니다.
+     여기서는 내부 스크롤을 끄고 페이지 전체를 스크롤합니다.
+     (2열로 줄어들어 20개면 10줄이지만, 모바일에서는 그냥 쭉 내리는 편이
+      자연스럽습니다) */
+  .wx-cards {
+    max-height: none;
+    padding-right: 0;
+    overflow-y: visible;
   }
 }
 

@@ -1,5 +1,9 @@
 import axios from 'axios'
-import { cities } from '@/data/cities'
+import { cities, CITY_QUERY } from '@/data/cities'
+
+// 도시 명부는 data/cities.js 한 곳에만 둡니다. 여기서 다시 export 하는 것은
+// 화면들이 "API 쪽 이름"으로도 자연스럽게 집어 갈 수 있게 하기 위해서입니다.
+export { CITY_QUERY }
 
 /* ════════════════════════════════════════════════════════════
    [4일차 과제] OpenWeatherMap 연동
@@ -40,10 +44,7 @@ const api = axios.create({
   params: { appid: API_KEY, units: 'metric', lang: 'kr' },
 })
 
-/* 우리 도시 코드 ↔ OpenWeatherMap 조회 좌표 매핑.
-   API 는 'city_01' 을 모르고, 우리 화면은 위경도를 안 씁니다.
-
-   ── 도시 이름(q=) 이 아니라 좌표(lat/lon) 로 부르는 이유 ──
+/* ── 도시 이름(q=) 이 아니라 좌표(lat/lon) 로 부르는 이유 ──
    처음에는 q=Seoul,KR 처럼 이름으로 짰는데 거제만 404 가 났습니다.
    OpenWeatherMap 의 이름 검색은 자체 도시 목록에 등재된 표기만 찾습니다.
    Geoje / Geoje-si / Okpo 를 전부 시도해도 없었고, 응답에 찍히는 이름은
@@ -54,15 +55,16 @@ const api = axios.create({
    문서도 q= 대신 좌표 사용을 권장하고 있습니다.
 
    덤으로 정확도도 올라갑니다 — 판교는 등재된 지명이 아니라 이름으로는
-   성남시 전체를 부를 수밖에 없었는데, 좌표를 쓰면 판교 지점을 곧장 찍습니다. */
-export const CITY_QUERY = {
-  city_01: { lat: 37.5665, lon: 126.978, name: '서울', region: '대한민국 서울특별시' },
-  city_02: { lat: 37.2636, lon: 127.0286, name: '수원', region: '경기도 수원시 영통구' },
-  city_03: { lat: 35.1587, lon: 129.1604, name: '부산', region: '부산광역시 해운대구' },
-  city_04: { lat: 37.3947, lon: 127.1112, name: '판교', region: '경기도 성남시 분당구' },
-  city_05: { lat: 37.7519, lon: 128.8761, name: '강릉', region: '강원특별자치도 강릉시' },
-  city_06: { lat: 34.8806, lon: 128.6212, name: '거제', region: '경상남도 거제시' },
-  city_07: { lat: 33.4996, lon: 126.5312, name: '제주', region: '제주특별자치도 제주시' },
+   성남시 전체를 부를 수밖에 없었는데, 좌표를 쓰면 판교 지점을 곧장 찍습니다.
+
+   좌표 표는 data/cities.js 의 ROSTER 에 있습니다. 도시를 추가하려면
+   그 파일 한 곳만 고치면 API 조회와 화면 표시가 함께 따라옵니다. */
+
+// 도시 하나가 좌표를 어떻게 넘기는지 — 두 엔드포인트가 같은 형태를 씁니다.
+const coordsOf = (cityId) => {
+  const meta = CITY_QUERY[cityId]
+  if (!meta) throw new Error(`알 수 없는 도시 코드: ${cityId}`)
+  return { lat: meta.lat, lon: meta.lon }
 }
 
 /* ────────────────────────────────────────────────
@@ -171,13 +173,16 @@ const buildDaily = (list, tz) => {
    조립 — 두 응답을 화면이 쓰던 도시 객체 모양으로 되돌립니다
    ──────────────────────────────────────────────── */
 
-/* 반환 모양을 data/cities.js 의 Mock 과 정확히 똑같이 맞춥니다.
+/* 반환 모양을 data/cities.js 의 seed 와 정확히 똑같이 맞춥니다.
    그래야 화면 컴포넌트를 한 줄도 안 고치고 데이터 출처만 바꿀 수 있습니다.
-   (Mock 에만 있던 uv 는 무료 API 에 없어서 뺐고, 화면에서도 뺐습니다) */
-const buildCity = (cityId, currentData, forecastData) => {
+   (Mock 에만 있던 uv 는 무료 API 에 없어서 뺐고, 화면에서도 뺐습니다)
+
+   forecastData 는 없을 수 있습니다 — 목록 화면은 예보를 안 부르기 때문입니다.
+   그때는 hourly/daily 를 비워 두고, 선택된 도시에 한해 나중에 채웁니다. */
+const buildCity = (cityId, currentData, forecastData = null) => {
   const meta = CITY_QUERY[cityId]
   const tz = currentData.timezone ?? 32400
-  const daily = buildDaily(forecastData.list ?? [], tz)
+  const daily = forecastData ? buildDaily(forecastData.list ?? [], tz) : []
 
   return {
     id: cityId,
@@ -188,6 +193,7 @@ const buildCity = (cityId, currentData, forecastData) => {
     icon: toCityIcon(currentData.weather[0]?.icon),
     // 오늘의 최고/최저는 예보에서 뽑는 편이 정확합니다. /weather 의
     // temp_max/min 은 관측 지점들의 편차라서 하루 최고기온과 다릅니다.
+    // 예보를 안 받아 왔으면 현재 응답의 값으로 대신합니다.
     high: daily[0]?.high ?? Math.round(currentData.main.temp_max),
     low: daily[0]?.low ?? Math.round(currentData.main.temp_min),
     sunrise: toTimeLabel(currentData.sys.sunrise, tz),
@@ -195,46 +201,64 @@ const buildCity = (cityId, currentData, forecastData) => {
     humidity: currentData.main.humidity,
     wind: currentData.wind.speed,
     pressure: currentData.main.pressure,
-    hourly: buildHourly(forecastData.list ?? [], tz),
+    hourly: forecastData ? buildHourly(forecastData.list ?? [], tz) : [],
     daily,
   }
 }
 
-/* ────────────────────────────────────────────────
-   화면이 부르는 함수는 이 둘뿐입니다
-   ──────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   화면이 부르는 함수 세 개
 
-/* 도시 하나 — 현재와 예보를 동시에 부릅니다.
-   순서대로 await 두 번 하면 첫 응답을 기다리는 동안 두 번째는 시작조차
-   안 합니다. Promise.all 로 묶으면 둘이 같이 출발해 총 시간이 절반입니다.
+   ── 왜 "현재"와 "예보"를 나눴나 ──────────────────────────
+   처음에는 도시마다 두 엔드포인트를 함께 불렀습니다. 도시가 7개일 때는
+   14회라 괜찮았지만, 20개로 늘리면서 40회가 됐습니다.
+   OpenWeatherMap 무료 플랜은 분당 60회 — 1분에 두 번만 새로고침해도
+   한도를 넘겨 429 가 떨어집니다.
+
+   그런데 화면을 보면 예보 스트립은 "선택된 한 도시" 것만 그립니다.
+   나머지 19개 도시의 예보는 받아 놓고 한 번도 쓰이지 않았습니다.
+
+     목록 로드   /weather × 20                 = 20회
+     도시 선택   /forecast × 1 (그 도시만)     = 1회
+
+   필요할 때 필요한 것만 부르는 쪽으로 바꿨습니다.
+   ════════════════════════════════════════════════════════════ */
+
+/* [1] 현재 날씨만 — 목록 카드가 쓰는 최소한의 정보 */
+export const fetchCityCurrent = async (cityId) => {
+  const { data } = await api.get('/weather', { params: coordsOf(cityId) })
+  return buildCity(cityId, data)
+}
+
+/* [2] 현재 + 예보 — 상세 페이지처럼 한 도시를 깊게 보여줄 때.
+
+   Promise.all 로 묶는 이유: 순서대로 await 두 번 하면 첫 응답을 기다리는
+   동안 두 번째는 시작조차 안 합니다. 함께 출발시키면 총 시간이 절반입니다.
    서로의 결과가 필요 없는 요청은 항상 이렇게 묶습니다. */
 export const fetchCityWeather = async (cityId) => {
-  const meta = CITY_QUERY[cityId]
-  if (!meta) throw new Error(`알 수 없는 도시 코드: ${cityId}`)
-
-  const coords = { lat: meta.lat, lon: meta.lon }
+  const coords = coordsOf(cityId)
 
   const [current, forecast] = await Promise.all([api.get('/weather', { params: coords }), api.get('/forecast', { params: coords })])
 
   return buildCity(cityId, current.data, forecast.data)
 }
 
-/* 도시 전체 — 7개를 한꺼번에 부릅니다.
+/* [3] 도시 전체 — 목록 화면용. 예보는 부르지 않습니다.
 
    ⚠️ Promise.all 이 아니라 allSettled 인 이유:
       all 은 하나라도 실패하면 나머지가 성공했어도 전부 버립니다. 도시 한
       곳의 응답이 늦었다고 대시보드가 통째로 비면 곤란합니다.
-      allSettled 는 성공/실패를 각각 알려 주므로, 실패한 도시만 Mock 으로
+      allSettled 는 성공/실패를 각각 알려 주므로, 실패한 도시만 seed 로
       메우고 나머지는 실시간 값을 씁니다. */
 export const fetchAllCities = async () => {
   const ids = Object.keys(CITY_QUERY)
-  const results = await Promise.allSettled(ids.map((id) => fetchCityWeather(id)))
+  const results = await Promise.allSettled(ids.map((id) => fetchCityCurrent(id)))
 
   return results.map((result, index) => {
     if (result.status === 'fulfilled') return result.value
 
     const id = ids[index]
-    console.error(`🔴 [${id}] 실시간 조회 실패 — Mock 으로 대체합니다.`, result.reason?.message ?? result.reason)
+    console.error(`🔴 [${id}] 실시간 조회 실패 — 저장된 값으로 대체합니다.`, result.reason?.message ?? result.reason)
     return cities.find((city) => city.id === id)
   })
 }
