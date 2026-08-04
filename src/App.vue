@@ -308,21 +308,31 @@ onBeforeUnmount(() => {
 }
 
 /* ── [4] 내비게이션 ───────────────────────────────────────── */
+/* 알약이 없어져 좌우 패딩이 사라진 만큼 항목 사이를 벌려 줍니다.
+   4px 이면 두 단어가 한 덩어리로 붙어 읽힙니다. */
 .wx-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 20px;
 }
 
-/* 앱 바의 세그먼트 버튼(°C/°F)과 같은 알약 모양을 씁니다.
-   내비와 컨트롤이 서로 다른 언어로 말하면 앱 바가 산만해집니다. */
+/* 세그먼트 버튼(°C/°F)처럼 알약을 꽉 채우는 방식도 써 봤지만, 내비에는
+   너무 무거웠습니다. 세그먼트는 "둘 중 지금 이것" 을 고르는 스위치라 채워도
+   되지만, 내비는 늘 떠 있는 안내판이라 검은 덩어리가 앱 바를 눌러 버립니다.
+
+   그래서 글씨색과 얇은 밑줄로만 구분합니다. 이 앱이 패널을 그림자 없이
+   1px 헤어라인으로만 나누는 것과 같은 규칙입니다.
+
+   밑줄을 border-bottom 이 아니라 투명한 테두리로 미리 깔아 둔 이유 —
+   활성일 때만 테두리를 주면 그 순간 요소 높이가 1px 늘어나 글자가 위로
+   튑니다. 자리를 미리 잡아 두고 색만 바꾸면 움직이지 않습니다. */
 .wx-nav-item {
-  padding: 6px 16px;
+  padding: 6px 4px;
   color: var(--dim);
   font-size: 13px;
   letter-spacing: 0.06em;
   text-decoration: none;
-  border-radius: 999px;
+  border-bottom: 1px solid transparent;
   transition: 0.2s;
 }
 
@@ -335,10 +345,10 @@ onBeforeUnmount(() => {
    active 는 "이 링크의 경로로 시작하는 주소"에 전부 붙습니다.
    그러면 to="/" 링크가 /about 에서도, /weather/city_01 에서도 켜집니다.
    (모든 경로가 / 로 시작하므로) exact-active 는 주소가 정확히 같을 때만
-   붙으므로 "대시보드"는 / 에서만 켜집니다. */
+   붙으므로 Dashboard 는 / 에서만 켜집니다. */
 .wx-nav-item.router-link-exact-active {
-  color: var(--bg);
-  background: var(--fg);
+  color: var(--fg);
+  border-bottom-color: var(--fg);
 }
 
 /* 상세 페이지(/weather/:id)는 내비에 항목이 없습니다. 그 화면에서는
