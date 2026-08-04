@@ -160,6 +160,18 @@ onBeforeUnmount(() => {
           <RouterLink to="/" class="wx-nav-item">Dashboard</RouterLink>
           <RouterLink to="/about" class="wx-nav-item">About</RouterLink>
         </nav>
+
+        <!-- [4일차 요구사항 2] Navigation Bar 옆에 UnitToggler 배치.
+
+             한 번 아래 설정줄로 내렸다가 여기로 되돌렸습니다. 처음에 헤더가
+             무거웠던 원인은 위치가 아니라 개수였습니다 — 알약 두 덩어리가
+             내비 오른쪽에 나란히 붙어 있었습니다.
+             자주 쓰는 단위만 올리고 테마는 아래 설정줄에 남기니, 스펙도
+             지키면서 헤더도 가벼워졌습니다.
+
+             App.vue 는 이 컴포넌트에 아무것도 넘겨주지 않습니다 —
+             값도 핸들러도 store 에서 직접 가져다 씁니다. -->
+        <UnitToggler class="wx-appbar-unit" />
       </header>
 
       <!-- ══════════ [요구사항 2] 메인 콘텐츠 영역 ══════════ -->
@@ -175,25 +187,13 @@ onBeforeUnmount(() => {
       </main>
 
       <!-- ══════════ 설정줄 ══════════ -->
-      <!-- [4일차] 단위·테마 토글이 앱 바에서 여기로 내려왔습니다.
+      <!-- 단위는 요구사항대로 앱 바로 올라갔고, 여기에는 테마만 남았습니다.
 
-           앱 바에 두었을 때는 로고 · 내비 · 알약 두 덩어리가 한 줄에 몰려
-           머리가 무거웠습니다. 지금은 위가 "어디로 갈지"(내비)만, 아래가
-           "어떻게 볼지"(설정)만 맡습니다.
+           테마를 같이 올리지 않은 이유 — 한 번 정하면 거의 안 바꾸는 값입니다.
+           자주 쓰는 것(단위)은 손 닿는 곳에, 가끔 쓰는 것(테마)은 아래에 둡니다.
 
-           셸 안이되 RouterView 밖이라 모든 페이지에 그대로 남습니다.
-           상세 페이지에서도 단위를 바꿀 수 있고, 화면을 옮겨도 설정이
-           초기화되지 않습니다. (값 자체는 store 와 App.vue 가 들고 있습니다) -->
+           셸 안이되 RouterView 밖이라 모든 페이지에 그대로 남습니다. -->
       <footer class="wx-settings">
-        <!-- [4일차 요구사항 2] UnitToggler 배치.
-             App.vue 가 이 컴포넌트에 아무것도 넘겨주지 않습니다 —
-             값도 핸들러도 store 에서 직접 가져다 씁니다. -->
-        <div class="wx-setting">
-          <span class="wx-label wx-setting-label">Unit</span>
-          <UnitToggler />
-        </div>
-
-        <!-- 테마 전환 — 이쪽은 App.vue 가 계속 소유합니다 -->
         <div class="wx-setting">
           <span class="wx-label wx-setting-label">Theme</span>
           <div class="wx-segment" role="group" aria-label="테마">
@@ -283,9 +283,10 @@ onBeforeUnmount(() => {
 }
 
 /* ── [3] 앱 바 ────────────────────────────────────────────── */
-/* [4일차 변경] 설정 알약들이 아래 설정줄로 내려가면서 앱 바에는
-   로고와 내비만 남았습니다. 셋을 벌리던 space-between 을 그대로 두면
-   로고와 내비가 양 끝으로 찢어지므로, 내비를 로고 오른쪽에 붙입니다. */
+/* 로고 · 내비 · 단위 토글 세 덩어리.
+   내비는 로고 바로 오른쪽에 붙이고(gap 28px), 단위 토글만 오른쪽 끝으로
+   밀어냅니다. space-between 을 쓰면 셋이 균등하게 벌어져 내비가 화면
+   한가운데 떠 버립니다. */
 .wx-appbar {
   display: flex;
   flex-wrap: wrap;
@@ -293,6 +294,12 @@ onBeforeUnmount(() => {
   gap: 12px 28px;
   margin-bottom: 18px;
   padding: 0 4px;
+}
+
+/* margin-left: auto 는 "왼쪽 여백을 남는 만큼 전부" 라는 뜻입니다.
+   flex 에서 한 항목만 반대쪽 끝으로 보낼 때 쓰는 관용구입니다. */
+.wx-appbar-unit {
+  margin-left: auto;
 }
 
 /* [3일차 변경] <p> 였던 브랜드가 RouterLink(=<a>)가 됐습니다.
@@ -363,11 +370,13 @@ onBeforeUnmount(() => {
    위쪽 헤어라인 하나로만 본문과 나눕니다. 패널(BaseDashboardCard)로
    감싸면 대시보드의 상자들과 같은 무게가 되어 "설정이 하나 더 있는 구획"처럼
    보입니다. 여기는 본문이 아니라 여백에 가까운 자리라 선 하나면 충분합니다. */
+/* 지금은 테마 하나뿐이라 오른쪽 끝에 세웁니다. 항목이 늘어나면
+   space-between 으로 바꾸면 됩니다. */
 .wx-settings {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px 24px;
   margin-top: 28px;
   padding: 20px 4px 0;
@@ -402,8 +411,9 @@ onBeforeUnmount(() => {
     font-size: 17px;
   }
 
-  /* 폰 폭에서는 브랜드와 내비가 한 줄에 안 들어갑니다.
-     내비를 한 줄 통째로 내려서 좌우로 펼칩니다. */
+  /* 폰 폭에서는 브랜드 · 내비 · 단위가 한 줄에 안 들어갑니다.
+     첫 줄은 브랜드 + 단위 토글, 둘째 줄은 내비 전체 폭으로 나눕니다.
+     order 로 순서를 바꾸는 것이라 DOM 은 그대로 두어도 됩니다. */
   .wx-nav {
     order: 3;
     flex: 1 0 100%;
@@ -415,17 +425,18 @@ onBeforeUnmount(() => {
     text-align: center;
   }
 
-  /* [4일차] 설정줄도 폰에서는 두 줄로 쌓습니다.
-     한 줄에 밀어 넣으면 알약이 찌그러지고 캡션이 잘립니다.
-     각 쌍 안에서는 캡션과 컨트롤을 양 끝으로 밀어, 세로로 쌓여도
-     컨트롤의 오른쪽 끝이 나란히 맞습니다. */
+  /* 단위 토글은 브랜드와 같은 줄 오른쪽 끝에 남깁니다 (order 기본값 0) */
+  .wx-appbar-unit {
+    order: 2;
+  }
+
+  /* 설정줄은 폰에서 캡션과 컨트롤을 양 끝으로 밀어 폭을 다 씁니다. */
   .wx-settings {
-    flex-direction: column;
     align-items: stretch;
-    gap: 12px;
   }
 
   .wx-setting {
+    flex: 1;
     justify-content: space-between;
   }
 }

@@ -56,9 +56,23 @@ const OUTFIT_TABLE = [
 // [computed] 기온이 바뀔 때만 다시 계산됩니다. 그 외에는 캐싱된 값을 재사용.
 const outfit = computed(() => OUTFIT_TABLE.find((row) => props.celsius >= row.min))
 
-// [computed] 비가 오면 우산을 따로 안내합니다.
-// status 문자열에 '비'가 들어있는지만 보므로 '비'·'소나기'·'가끔 비' 전부 잡힙니다.
-const needsUmbrella = computed(() => props.status.includes('비'))
+/* [computed] 비가 오면 우산을 따로 안내합니다.
+
+   ⚠️ [4일차] 판정 기준을 넓혔습니다.
+   전에는 includes('비') 하나였습니다. API 원문이 '비' · '소나기' · '실 비'
+   처럼 전부 '비' 를 품고 있어서 그걸로 충분했습니다.
+
+   그런데 상태 문구를 이 앱의 말투로 바꾸면서('빗방울' · '빗줄기')
+   정작 '비' 라는 글자가 사라졌습니다. 문구만 예쁘게 바꿨는데 비 오는 날
+   우산 안내가 조용히 사라지는 상황이었습니다.
+
+   그래서 글자 하나가 아니라 "젖는 날씨" 를 가리키는 표현들을 모아서 봅니다.
+   원문이 표에 없어 그대로 통과한 경우('가끔 비' 같은)에도 여전히 잡힙니다.
+
+   ⚠️ '폭우' 를 따로 넣은 이유 — 가장 비가 많이 오는 날인데 정작 '비' 도
+      '빗' 도 안 들어 있습니다. 어휘를 늘릴 때는 이 정규식도 같이 봐야
+      합니다. 지금 화면에 쓰는 말은 data/weatherLabels.js 에 모여 있습니다. */
+const needsUmbrella = computed(() => /비|빗|우|눈|천둥|소나기/.test(props.status))
 </script>
 
 <template>

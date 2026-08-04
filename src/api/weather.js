@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { cities, CITY_QUERY } from '@/data/cities'
+import { toFriendlyStatus } from '@/data/weatherLabels'
 
 // 도시 명부는 data/cities.js 한 곳에만 둡니다. 여기서 다시 export 하는 것은
 // 화면들이 "API 쪽 이름"으로도 자연스럽게 집어 갈 수 있게 하기 위해서입니다.
@@ -189,7 +190,8 @@ const buildCity = (cityId, currentData, forecastData = null) => {
     name: meta.name,
     region: meta.region,
     temp: Math.round(currentData.main.temp),
-    status: currentData.weather[0]?.description ?? '정보 없음',
+    // API 원문('약간의 구름이 낀 하늘')을 이 앱의 말투('솜구름')로 옮깁니다
+    status: toFriendlyStatus(currentData.weather[0]?.description ?? '정보 없음'),
     icon: toCityIcon(currentData.weather[0]?.icon),
     // 오늘의 최고/최저는 예보에서 뽑는 편이 정확합니다. /weather 의
     // temp_max/min 은 관측 지점들의 편차라서 하루 최고기온과 다릅니다.
