@@ -48,8 +48,10 @@ const isBooting = ref(true) // 스플래시 표시 여부
 const fontsReady = ref(false) // 웹폰트 준비 여부
 
 /* 스플래시를 최소한 이만큼은 보여 줍니다. 폰트가 즉시 준비돼도 화면이
-   번쩍 지나가 버리지 않게 하는 하한선입니다. */
-const SPLASH_MIN_MS = 1200
+   번쩍 지나가 버리지 않게 하는 하한선입니다.
+   [변경] 제목 아래에 한 줄 설명이 생기면서 1.2초 → 1.6초.
+   읽을 것을 띄워 놓고 읽기 전에 걷어 버리면 없느니만 못합니다. */
+const SPLASH_MIN_MS = 1600
 
 /* 폰트가 아무리 늦어도 여기서 끊고 진행합니다. 네트워크가 느리다고
    대시보드를 못 보는 일이 없어야 합니다. */
@@ -152,7 +154,14 @@ onBeforeUnmount(() => {
          그래야 시스템 폰트 → Ubuntu Condensed 로 바뀌면서 글자 폭이 튀는
          장면(FOUT)이 사용자에게 보이지 않습니다. -->
     <div v-if="isBooting" class="wx-splash" :class="{ 'is-ready': fontsReady }">
-      <h1 class="wx-splash-title">Weather</h1>
+      <!-- [추가] 제목 아래 한 줄 설명.
+           스플래시는 1.6초 남짓 머무는 화면이라 문장이 길면 아무도 못
+           읽습니다. "무엇을 보여 주는 앱인가" 만 한 줄로 적고, 자세한
+           이야기는 /about 이 맡습니다. -->
+      <div class="wx-splash-head">
+        <h1 class="wx-splash-title">Weather</h1>
+        <p class="wx-splash-lead">전국 20개 지역의 실시간 날씨<br />오늘의 옷차림과 플레이리스트까지</p>
+      </div>
       <p class="wx-splash-sub">Dora's weather dashboard</p>
     </div>
 
@@ -286,18 +295,32 @@ onBeforeUnmount(() => {
   animation: wx-in 0.6s ease;
 }
 
+/* 제목 + 설명 한 덩어리. 가운데 정렬은 부모(.wx-splash)가 이미 맡고 있어
+   여기서는 세로로 쌓기만 합니다. */
+.wx-splash-head {
+  text-align: center;
+}
+
 /* 폰트 교체(FOUT) 감추기 —
    글자는 처음에 투명하고, fontsReady 가 켜지면 is-ready 가 붙어 나타납니다.
    자리(높이·정렬)는 그대로 차지하므로 레이아웃이 밀리지 않습니다. */
 .wx-splash-title,
+.wx-splash-lead,
 .wx-splash-sub {
   opacity: 0;
   transition: opacity 0.4s ease;
 }
 
 .wx-splash.is-ready .wx-splash-title,
+.wx-splash.is-ready .wx-splash-lead,
 .wx-splash.is-ready .wx-splash-sub {
   opacity: 1;
+}
+
+/* 설명은 제목보다 한 박자 늦게 떠오릅니다. 둘이 동시에 나타나면
+   큰 글자에 시선이 묶여 작은 줄을 못 보고 지나칩니다. */
+.wx-splash.is-ready .wx-splash-lead {
+  transition-delay: 0.25s;
 }
 
 .wx-splash-title {
@@ -306,6 +329,16 @@ onBeforeUnmount(() => {
   font-weight: 400;
   letter-spacing: 0.04em;
   white-space: nowrap;
+}
+
+/* 한글 두 줄. 제목(clamp 32~64px)과 부제(12~14px) 사이 크기라
+   셋이 나란히 놓여도 위계가 흐트러지지 않습니다. */
+.wx-splash-lead {
+  margin: 18px 0 0;
+  color: var(--dim);
+  font-size: clamp(13px, 1.4vw, 16px);
+  line-height: 1.8;
+  letter-spacing: 0.02em;
 }
 
 .wx-splash-sub {
