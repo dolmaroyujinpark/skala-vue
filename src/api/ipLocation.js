@@ -36,7 +36,7 @@ import axios from 'axios'
    ════════════════════════════════════════════════════════════ */
 
 /* IP 위치는 오차를 알려 주지 않습니다. 그래서 우리가 정해 줘야 하는데,
-   이 숫자가 곧 WeatherHomeView 의 isUsablePosition 을 통과하느냐를
+   이 숫자가 곧 WeatherHomeView 의 isAccurateEnough 를 통과하느냐를
    가릅니다(한계 25km).
 
    20km 로 잡은 이유 — IP 위치는 보통 시/군 단위까지는 맞습니다.
@@ -51,7 +51,7 @@ const ipApi = axios.create({ baseURL: 'https://ipwho.is', timeout: 5000 })
 
 /* 반환 모양을 브라우저의 GeolocationPosition 과 똑같이 맞춥니다.
    그래야 부르는 쪽이 "이건 IP 로 구한 값" 이라고 분기하지 않아도
-   isUsablePosition · findNearestOf 에 그대로 흘려보낼 수 있습니다.
+   isAccurateEnough · findNearestOf 에 그대로 흘려보낼 수 있습니다.
 
    source 만 하나 덧붙입니다. 화면에 "짐작한 위치입니다" 라고 적어야 할
    때가 있고, 탭 복귀 시 "이동했나?" 를 묻는 데는 쓰면 안 되기 때문입니다

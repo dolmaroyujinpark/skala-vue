@@ -28,7 +28,9 @@ import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] WeatherHomeView.vue — / 경로의 대시보드 (요구사항 3)
-   2일차 원본: components/mine/weather/WeatherParent.vue.day2
+   2일차 원본: components/mine/weather/WeatherParent.vue
+   (대체된 뒤 어디에서도 import 하지 않지만, 무엇이 무엇으로 바뀌었는지
+    나란히 볼 수 있도록 지우지 않고 남겨 두었습니다)
 
    ── WeatherParent 를 대체하면서 달라진 것 ────────────────
    요구사항은 "WeatherParent 대체" 다. 파일 이름만 바꾼 게 아니라,
