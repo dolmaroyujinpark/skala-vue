@@ -15,6 +15,7 @@ import { useConfigStore } from '@/stores/configStore'
 import { useFavoriteStore } from '@/stores/favoriteStore'
 import { useCityStore } from '@/stores/cityStore'
 import { fetchAllCities, fetchCityWeather, getCachedCities, searchPlaces, searchByCoords, CITY_QUERY } from '@/api/weather'
+import { locateByIp } from '@/api/ipLocation'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
@@ -191,23 +192,42 @@ const GEO_PRECISE = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
    maximumAge 는 "이만큼 낡은 값까지는 새로 재지 말고 그냥 써라" 입니다.
    그래서 이동했는데도 아까 그 좌표가 그대로 나올 수 있습니다.
 
-   문제는 낡았다는 것 자체가 아니라 **낡았는지 알 수 없다는 것**이었습니다.
-   응답에는 timestamp 가 함께 오므로, 받아서 얼마나 지난 값인지 볼 수 있습니다.
-   그래서 캐시는 허용하되 아래 isUsablePosition 이 두 가지를 검사합니다.
-
-     · 얼마나 낡았나  (POSITION_MAX_AGE_MS)
-     · 얼마나 정확한가 (ACCURACY_LIMIT_M)
-
-   캐시를 아예 막으면 측위가 느리거나 실패하는 환경에서 아무것도 못 하고,
-   무조건 받으면 엉뚱한 도시를 기본값으로 잡습니다. 받아 놓고 거르는 것이
-   두 손해를 다 피하는 방법입니다. */
+   캐시를 아예 막으면 측위가 느리거나 실패하는 환경에서 아무것도 못 합니다.
+   그래서 캐시는 받고, 대신 아래 isAccurateEnough 가 오차만 검사합니다
+   (ACCURACY_LIMIT_M). 낡았는지는 보지 않습니다 — 왜인지는 그 아래에. */
 const GEO_LOOSE = { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
 
-// 10분보다 낡은 좌표는 쓰지 않습니다. 그 사이에 도시 하나쯤은 옮길 수 있습니다.
-const POSITION_MAX_AGE_MS = 10 * 60 * 1000
+/* ── 좌표가 낡았는지는 보지 않기로 했습니다 ──────────────────
+   한동안 "10분보다 낡은 좌표는 버린다" 는 규칙이 있었습니다.
+   다른 사람 컴퓨터에서 이 로그가 찍히면서 걷어냈습니다.
 
-const isUsablePosition = (position) => {
-  const ageMs = Date.now() - position.timestamp
+     ⚠️ [geo] 286분 전 좌표라 쓰지 않습니다.
+
+   측위는 **성공한** 것입니다. 브라우저가 좌표를 줬는데 우리가 버렸고,
+   그 사람 화면에서는 그냥 "위치 기능이 안 되는 앱" 이었습니다.
+
+   왜 286분짜리가 오는가 — 데스크톱에는 GPS 칩이 없어서 좌표가 WiFi
+   스캔 결과에서 나옵니다. 그 컴퓨터도 새로 재는 데는 실패했고,
+   CoreLocation 이 "마지막으로 알던 위치" 를 대신 내준 것입니다.
+   그래서 timestamp 는 "언제 측정했나" 가 아니라 "OS 가 마지막으로
+   위치를 알던 게 언제인가" 에 가깝습니다.
+   (maximumAge: 0 은 Chrome 의 캐시를 막을 뿐 OS 캐시는 못 막습니다)
+
+   ── 왜 아예 안 보기로 했나 ────────────────────────────────
+   한때는 탭 복귀("그 사이 이동했나?")에서만 나이를 봤습니다. 거기서는
+   낡은 좌표가 답이 안 된다고 봤거든요.
+
+   그런데 그러면 **같은 좌표를 앱 켤 때는 믿고 탭 복귀 때는 안 믿는**
+   셈이 됩니다. 틀린 좌표라면 두 경우 다 똑같이 틀립니다. 한쪽만
+   거를 근거가 없어서, 규칙을 하나로 합쳤습니다 — **오차만 봅니다.**
+
+   낡은 좌표가 실제로 위험한 경우(노트북을 집에서 들고 온 경우)는
+   남아 있지만, 그때도 사용자는 카드를 눌러 다른 도시를 볼 수 있습니다.
+   기능이 통째로 죽는 쪽보다 낫다고 판단했습니다.
+   ──────────────────────────────────────────────── */
+
+// 어느 도시가 가까운지 가릴 수 있을 만큼 좁게 잡혔는가.
+const isAccurateEnough = (position) => {
   const accuracy = Math.round(position.coords.accuracy)
 
   if (accuracy > ACCURACY_LIMIT_M) {
@@ -215,24 +235,29 @@ const isUsablePosition = (position) => {
     return false
   }
 
-  if (ageMs > POSITION_MAX_AGE_MS) {
-    console.warn(`⚠️ [geo] ${Math.round(ageMs / 60000)}분 전 좌표라 쓰지 않습니다.`)
-    return false
-  }
-
+  const ageMs = Date.now() - position.timestamp
   console.log(`📍 [geo] 좌표 ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)} · 오차 ${accuracy}m · ${Math.round(ageMs / 1000)}초 전`)
   return true
 }
 
+
 /* 숫자 코드만 찍으면 무엇 때문에 막혔는지 알 수 없습니다.
    1 은 브라우저 설정, 2 는 OS 위치 서비스, 3 은 네트워크·시간 문제로
    해결 방법이 전부 다릅니다. */
+/* ⚠️ 2번 문구를 고친 이유 — 전에는 "맥은 시스템 설정에서 Chrome 을
+      켜야 합니다" 라고만 적었습니다. 그런데 켜 두었는데도 2번이 나는
+      경우가 있어서(사내망·VPN 이 애플 측위 서버를 막을 때) 그 안내를
+      따라가면 "이미 켜져 있는데?" 에서 막힙니다. 두 원인을 다 적습니다. */
+const PERMISSION_DENIED = 1
+
 const describeGeoError = (error) =>
   ({
     1: '권한 거부 — 주소창 자물쇠에서 위치를 허용으로',
-    2: '위치 확인 불가 — 맥은 시스템 설정 > 개인정보 보호 > 위치 서비스에서 Chrome 을 켜야 합니다',
+    2: '위치 확인 불가 — OS 위치 서비스가 꺼져 있거나, 사내망·VPN 이 측위 서버를 막고 있습니다',
     3: '시간 초과',
-  })[error.code] ?? '알 수 없는 오류'
+  })[error?.code] ??
+  error?.message ??
+  '알 수 없는 오류'
 
 /* ── 개발 중에만 쓰는 좌표 흉내 ──────────────────────────
    맥 데스크톱은 Core Location 이 막히면 브라우저 설정과 무관하게
@@ -246,7 +271,18 @@ const describeGeoError = (error) =>
 
    ⚠️ import.meta.env.DEV 는 빌드하면 false 로 고정됩니다. 그래서 아래
       블록은 배포본에서 통째로 사라집니다(Vite 가 죽은 코드로 지웁니다).
-      운영 코드에 테스트용 뒷문을 남기지 않으려는 장치입니다. */
+      운영 코드에 테스트용 뒷문을 남기지 않으려는 장치입니다.
+
+   ⚠️ 단, 한 가지 조건이 붙습니다. Vite 는 프로덕션 여부를
+        process.env.NODE_ENV || mode
+      로 판정합니다 — **NODE_ENV 가 mode 를 이깁니다.** 쉘에
+      NODE_ENV=development 가 export 돼 있으면 `vite build` 인데도
+      DEV 가 true 로 잡혀서, 이 가드가 반대로 접히고 아래 코드가
+      산출물에 그대로 실립니다. 실제로 그렇게 새는 걸 확인했습니다.
+
+      그래서 package.json 의 build 스크립트에 NODE_ENV=production 을
+      직접 박아 뒀습니다. 쉘 상태에 기대지 않으려는 것입니다.
+      (확인법: npm run build 후 dist 에서 wx-geo-mock 을 grep) */
 const readMockPosition = () => {
   if (!import.meta.env.DEV) return null
 
@@ -260,12 +296,9 @@ const readMockPosition = () => {
   return { coords: { latitude: lat, longitude: lon, accuracy: 30 }, timestamp: Date.now() }
 }
 
-/* 정밀 → 실패하면 간이. 둘 다 실패해야 진짜 실패입니다. */
-const requestPosition = () =>
+/* 정밀 → 실패하면 간이. 둘 다 실패해야 브라우저가 못 하는 것입니다. */
+const requestBrowserPosition = () =>
   new Promise((resolve, reject) => {
-    const mock = readMockPosition()
-    if (mock) return resolve(mock)
-
     navigator.geolocation.getCurrentPosition(
       resolve,
       (firstError) => {
@@ -275,6 +308,31 @@ const requestPosition = () =>
       GEO_PRECISE,
     )
   })
+
+/* ── 브라우저가 끝내 못 주면 IP 로 물어봅니다 ────────────────
+   맥에서 "허용" 을 눌러도 좌표가 안 오는 문제 때문에 붙였습니다.
+   왜 브라우저만으로는 안 되는지는 api/ipLocation.js 위쪽에 적었습니다.
+
+   ⚠️ 권한 거부(1번)일 때는 IP 로 넘어가지 않습니다.
+      "위치를 알려 주지 않겠다" 고 명시적으로 답한 사람을 뒷문으로
+      찾아내는 셈이 됩니다. 2번(측위 불가) · 3번(시간 초과)만 —
+      이 둘은 "알려 주려 했는데 기계가 못 한" 경우입니다.
+
+   ⚠️ allowIp 를 끄고 부르는 곳이 있습니다(탭 복귀). IP 는 책상에
+      앉아 있는 한 절대 안 바뀌어서 "이동했나?" 에 답할 수 없습니다. */
+const requestPosition = async ({ allowIp = true } = {}) => {
+  const mock = readMockPosition()
+  if (mock) return mock
+
+  try {
+    return await requestBrowserPosition()
+  } catch (error) {
+    if (!allowIp || error?.code === PERMISSION_DENIED) throw error
+
+    console.warn(`⚠️ [geo] 브라우저 측위 실패 (${describeGeoError(error)}) — IP 로 대략적인 위치를 구해 봅니다.`)
+    return await locateByIp()
+  }
+}
 
 /* [추가] 방금 담은 도시.
 
@@ -896,7 +954,11 @@ const findPlace = async () => {
       그러면 주소창 자물쇠를 눌러 직접 풀어야 합니다.
       버튼을 누른 사람은 이미 위치를 알려 줄 마음이 있는 사람입니다.
    ──────────────────────────────────────────────── */
-const findMyPlace = () => {
+/* ⚠️ 전에는 여기서 getCurrentPosition 을 직접 불렀습니다. 그래서 위의
+      requestPosition 이 챙기는 것들을 하나도 못 받았습니다 — 정밀 실패
+      시 간이 재시도도, 개발용 좌표 흉내도 없었고, 정밀 한 번 실패하면
+      그대로 "가져오지 못했습니다" 였습니다. 지금은 같은 통로를 씁니다. */
+const findMyPlace = async () => {
   if (!navigator.geolocation) {
     placeMessage.value = '이 브라우저는 위치 기능을 지원하지 않습니다.'
     return
@@ -906,49 +968,47 @@ const findMyPlace = () => {
   placeMessage.value = ''
   placeResults.value = []
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const { coords } = position
+  try {
+    const position = await requestPosition()
+    const { coords } = position
 
-        /* 오차가 크면 엉뚱한 동네를 담게 됩니다. 막지는 않되 —
-           사용자가 직접 누른 동작이라 아무것도 안 나오면 고장으로
-           보입니다 — 무엇이 잡혔는지 알 수 있게 안내를 함께 띄웁니다. */
-        if (!isUsablePosition(position)) {
-          placeMessage.value = `위치가 정확하지 않습니다(오차 반경 약 ${Math.round(coords.accuracy / 1000)}km). 아래가 맞지 않으면 지역 이름으로 검색해 주세요.`
-        }
+    /* 찾아 준 좌표를 얼마나 믿어야 하는지 함께 알려 줍니다. 막지는
+       않되 — 사용자가 직접 누른 동작이라 아무것도 안 나오면 고장으로
+       보입니다 — 아래 후보가 엉뚱하면 왜 그런지는 알아야 합니다.
 
-        const place = await searchByCoords(coords.latitude, coords.longitude)
+       ⚠️ 낡은 좌표(노트북을 집에서 들고 온 경우)도 여기서 걸립니다.
+          버리지 않고 "몇 시간 전 위치" 라고 밝히는 쪽을 골랐습니다. */
+    if (position.source === 'ip') {
+      placeMessage.value = '기기가 위치를 알려 주지 못해 인터넷 주소로 짐작한 위치입니다. 아래가 맞지 않으면 지역 이름으로 검색해 주세요.'
+    } else if (!isAccurateEnough(position)) {
+      placeMessage.value = `위치가 정확하지 않습니다(오차 반경 약 ${Math.round(coords.accuracy / 1000)}km). 아래가 맞지 않으면 지역 이름으로 검색해 주세요.`
+    }
 
-        if (!place) {
-          placeMessage.value = '현재 위치의 지역 이름을 찾지 못했습니다.'
-          return
-        }
+    const place = await searchByCoords(coords.latitude, coords.longitude)
 
-        placeResults.value = [place]
-        console.log('📍 [geo] 현재 위치', place)
-      } catch (error) {
-        placeMessage.value = '현재 위치를 확인하는 데 실패했습니다.'
-        console.error('🔴 [geo] 역방향 조회 실패', error)
-      } finally {
-        isSearchingPlace.value = false
-      }
-    },
-    (error) => {
-      isSearchingPlace.value = false
+    if (!place) {
+      placeMessage.value = '현재 위치의 지역 이름을 찾지 못했습니다.'
+      return
+    }
 
-      /* 거부(1)와 그 밖(2 위치 불명 · 3 시간 초과)을 나눠 안내합니다.
-         거부는 브라우저 설정을 열어야 풀리는 문제라, "다시 시도" 를
-         권하면 눌러도 아무 일이 없어 사용자가 고장으로 오해합니다. */
-      placeMessage.value =
-        error.code === error.PERMISSION_DENIED
-          ? '위치 권한이 꺼져 있습니다. 주소창의 자물쇠를 눌러 허용으로 바꾸거나, 지역 이름으로 검색해 주세요.'
-          : '현재 위치를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    placeResults.value = [place]
+    console.log('📍 [geo] 현재 위치', place)
+  } catch (error) {
+    /* 거부(1)와 그 밖을 나눠 안내합니다. 거부는 브라우저 설정을 열어야
+       풀리는 문제라, "다시 시도" 를 권하면 눌러도 아무 일이 없어
+       사용자가 고장으로 오해합니다.
 
-      console.warn('⚠️ [geo] 위치 요청 실패', error.code, error.message)
-    },
-    GEO_PRECISE,
-  )
+       그 밖의 실패는 이제 IP 까지 다 해 보고도 안 된 것이라, 전처럼
+       "잠시 후 다시" 라고 하면 안 됩니다. 기다려도 달라지지 않습니다. */
+    placeMessage.value =
+      error?.code === PERMISSION_DENIED
+        ? '위치 권한이 꺼져 있습니다. 주소창의 자물쇠를 눌러 허용으로 바꾸거나, 지역 이름으로 검색해 주세요.'
+        : '현재 위치를 알아내지 못했습니다. 지역 이름으로 검색해 주세요.'
+
+    console.warn(`⚠️ [geo] 위치 요청 실패 — ${describeGeoError(error)}`)
+  } finally {
+    isSearchingPlace.value = false
+  }
 }
 
 /* ────────────────────────────────────────────────
@@ -977,10 +1037,16 @@ const applyNearestAsDefault = async () => {
 
     /* "한 번은 위치를 받아 봤다" 는 사실은 그 값을 쓸 수 있느냐와 별개입니다.
        낡거나 부정확해서 이번엔 못 쓰더라도 브라우저·OS 는 멀쩡하다는 뜻이라,
-       나중에 탭으로 돌아왔을 때 다시 재 볼 자격이 있습니다. */
-    hasLocatedOnce = true
+       나중에 탭으로 돌아왔을 때 다시 재 볼 자격이 있습니다.
 
-    if (!isUsablePosition(position)) return
+       ⚠️ IP 로 구한 값은 여기서 세지 않습니다. IP 는 이 자리에 앉아 있는
+          한 안 바뀌므로, 탭 복귀 때 다시 물어도 늘 같은 도시를 제안하게
+          됩니다. "이동했나?" 에 답할 수 없는 값이라 아예 자격을 안 줍니다. */
+    if (position.source !== 'ip') hasLocatedOnce = true
+
+    /* 나이는 보지 않습니다. 앱을 켜면서 묻는 "지금 어디쯤?" 이라
+       몇 시간 묵은 좌표라도 책상은 그 자리에 있습니다. */
+    if (!isAccurateEnough(position)) return
 
     const { coords } = position
     const nearest = findNearestOf(weatherList.value, coords.latitude, coords.longitude)
@@ -992,7 +1058,15 @@ const applyNearestAsDefault = async () => {
     if (hasUserPickedCity.value) return
 
     selectedId.value = nearest.id
-    selectedCityInfo.value = `현재 위치에서 가장 가까운 ${nearest.name} 입니다.`
+
+    /* IP 로 짐작한 위치일 때 "현재 위치" 라고 단언하지 않습니다.
+       VPN 을 켜면 엉뚱한 도시가 나올 수 있는데, 그때 사용자가 "이 앱은
+       내 위치도 못 잡네" 가 아니라 "아, 대충 잡은 거구나" 로 읽어야
+       다음 행동(직접 검색)으로 갈 수 있습니다. */
+    selectedCityInfo.value =
+      position.source === 'ip'
+        ? `접속 위치로 짐작한 ${nearest.name} 입니다.`
+        : `현재 위치에서 가장 가까운 ${nearest.name} 입니다.`
   } catch (error) {
     // 사용자가 요청한 적 없는 동작이라 화면에는 아무 말도 하지 않습니다.
     console.warn(`⚠️ [geo] 기본 도시 보정 건너뜀 — ${describeGeoError(error)}`)
@@ -1019,8 +1093,9 @@ const onTabVisible = async () => {
   if (!hasLocatedOnce || !navigator.geolocation) return
 
   try {
-    const position = await requestPosition()
-    if (!isUsablePosition(position)) return
+    // 이동 여부를 묻는 자리라 IP 는 쓰지 않습니다 (requestPosition 주석 참고).
+    const position = await requestPosition({ allowIp: false })
+    if (!isAccurateEnough(position)) return
 
     const { coords } = position
     const nearest = findNearestOf(weatherList.value, coords.latitude, coords.longitude)
