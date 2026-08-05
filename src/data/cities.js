@@ -118,6 +118,57 @@ const buildSeedCity = ({ id, name, region, seed }) => {
    API 응답이 도착하면 이 값들은 실시간 데이터로 덮어써집니다. */
 export const cities = ROSTER.map(buildSeedCity)
 
+/* [추가] 검색으로 담은 도시의 자리표.
+
+   명부에 없는 도시는 seed 가 없습니다. 그런데 화면은 hourly 6칸 ·
+   daily 6칸이 반드시 있다고 가정하고 그리므로, 응답이 도착하기 전
+   잠깐 동안 쓸 껍데기가 필요합니다.
+
+   기온을 20도로 둔 것은 "그럴듯한 숫자" 여서가 아니라 카드 높이를
+   흔들지 않을 자리 채움이기 때문입니다. 상태 문구는 '—' 로 두어
+   실제 값이 아님을 드러냅니다 — 여기에 '맑음' 같은 걸 적으면 잠깐이라도
+   화면이 거짓말을 합니다. */
+export const makePlaceholderCity = ({ id, name, region }) => buildSeedCity({ id, name, region, seed: { temp: 20, status: '—', icon: 'cloud' } })
+
+/* ────────────────────────────────────────────────
+   [추가] 이 좌표에서 가장 가까운 우리 도시
+
+   검색으로 담는 지역은 '옥포동' · '서면' 처럼 작은 단위입니다. 그런데
+   OpenWeatherMap 은 한국 주소의 시·도(state)를 돌려주지 않습니다.
+   그래서 "경상남도 거제시 옥포동" 같은 문구를 응답만으로는 만들 수 없습니다.
+
+   대신 우리가 이미 가진 것을 씁니다 — 20곳의 좌표와 행정구역명입니다.
+   가장 가까운 곳을 찾아 '거제 부근' 이라고 적어 주면,
+     · 어디쯤인지 감이 오고
+     · 같은 이름이 둘 나올 때 구분이 됩니다
+       ('서면' 은 포항 부근에도 있고 춘천 부근에도 있습니다)
+
+   ⚠️ 위경도 차이를 그대로 제곱해 더합니다. 지구가 둥근 것을 무시한
+      근사값이지만, 한국 안 40km 안팎을 가리는 데는 충분합니다.
+      정확한 거리(하버사인)를 쓰면 코드가 길어지는데 얻는 것이 없습니다.
+   ──────────────────────────────────────────────── */
+const NEAR_LIMIT_KM = 45
+
+export const findNearestCity = (lat, lon) => {
+  let best = null
+  let bestScore = Infinity
+
+  for (const city of ROSTER) {
+    // 위도 1도 ≈ 111km. 경도는 위도가 높을수록 좁아지지만 한국(위도 33~38)
+    // 에서는 0.8 정도로 보정하면 실제와 크게 어긋나지 않습니다.
+    const dy = (city.lat - lat) * 111
+    const dx = (city.lon - lon) * 111 * 0.8
+    const score = dy * dy + dx * dx
+
+    if (score < bestScore) {
+      bestScore = score
+      best = city
+    }
+  }
+
+  return Math.sqrt(bestScore) <= NEAR_LIMIT_KM ? best : null
+}
+
 /* id 로 도시 하나를 찾습니다. 없는 id 면 undefined 를 돌려주고,
    "없다"는 판단은 호출한 화면이 합니다. (상세 페이지는 안내 문구를 띄웁니다) */
 export const findCityById = (cityId) => cities.find((city) => city.id === cityId)

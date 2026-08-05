@@ -46,6 +46,15 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  /* [추가] 검색으로 담은 도시인지. 이때만 ✕ 가 보입니다.
+
+     한때 모든 카드에 ✕ 가 있었는데, 기본 20곳을 지우면 되살릴 방법이
+     없어서 걷어냈습니다. 이제는 검색으로 다시 담을 수 있으니 지우는
+     버튼이 막다른 길이 아닙니다 — 단, 내가 담은 것에만 붙입니다. */
+  isCustom: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 /* ────────────────────────────────────────────────
@@ -67,7 +76,7 @@ const configStore = useConfigStore()
    select-card 에 문구가 아닌 도시 객체를 실어 올리는 이유:
    문장을 자식이 만들면 부모가 선택된 id 를 알 방법이 없어집니다.
    ──────────────────────────────────────────────── */
-const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
+const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite', 'remove-card'])
 </script>
 
 <template>
@@ -94,6 +103,13 @@ const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
         @click.stop="emit('toggle-favorite', cityItem)"
       >
         <MonoIcon name="star" :size="14" :filled="isFavorite" />
+      </button>
+    </el-tooltip>
+
+    <!-- [추가] 담은 도시만 뺄 수 있습니다. 즐겨찾기 별과 반대쪽 모서리. -->
+    <el-tooltip v-if="isCustom" content="목록에서 빼기" placement="top" :teleported="false" :show-after="400">
+      <button class="wx-icon-btn wx-card-remove" aria-label="목록에서 빼기" @click.stop="emit('remove-card', cityItem)">
+        <MonoIcon name="close" :size="13" />
       </button>
     </el-tooltip>
 
@@ -159,10 +175,25 @@ const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
   height: 46px;
 }
 
+/* [추가] 이름이 길어도 카드 밖으로 넘치지 않게.
+
+   검색으로 담는 지역은 이름 길이를 우리가 정할 수 없습니다
+   ('도쿄 하네다국제공항' · 'Tokyo International Airport').
+
+     word-break: keep-all    한글을 어절 단위로 끊습니다. 기본값이면
+                             '하네다국/제공항' 처럼 낱글자에서 잘립니다.
+     overflow-wrap: anywhere 그래도 한 어절이 카드보다 길면 그때는
+                             어디서든 끊습니다. 넘치는 것보다 낫습니다.
+
+   카드 높이는 늘어나도 괜찮습니다 — 부모(WeatherHomeView)가 첫 카드를
+   실측해 두 줄 높이를 다시 잡습니다. */
 .wx-card-city {
   margin: 16px 0 0;
   font-size: 18px;
   font-weight: 400;
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 /* 38px 이면 화씨 3자리("84°F")가 146px 안에서 아슬아슬합니다. 32px 로 낮춰
@@ -215,6 +246,22 @@ const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
 .wx-detail-btn:hover {
   color: var(--fg);
   border-color: var(--fg);
+}
+
+/* [추가] 담은 도시를 빼는 ✕. 즐겨찾기 별과 반대쪽 모서리에 두고,
+   평소엔 숨어 있다가 카드에 마우스를 올리면 나타납니다.
+   ✕ 는 되돌릴 수 없는 동작이라 별처럼 "항상 보이게" 하지 않았습니다. */
+.wx-card-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.wx-card:hover .wx-card-remove,
+.wx-card-remove:focus-visible {
+  opacity: 1;
 }
 
 /* [2일차 추가] 즐겨찾기 별. 카드 왼쪽 위 모서리.

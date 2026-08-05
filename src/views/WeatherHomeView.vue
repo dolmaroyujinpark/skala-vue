@@ -13,7 +13,8 @@ import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount, nextTick
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/configStore'
 import { useFavoriteStore } from '@/stores/favoriteStore'
-import { fetchAllCities, fetchCityWeather, getCachedCities } from '@/api/weather'
+import { useCityStore } from '@/stores/cityStore'
+import { fetchAllCities, fetchCityWeather, getCachedCities, searchPlaces, searchByCoords, CITY_QUERY } from '@/api/weather'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
@@ -22,7 +23,7 @@ import WeatherCard from '@/components/mine/weather/WeatherCard.vue'
 import WeatherHero from '@/components/mine/weather/WeatherHero.vue'
 import ForecastStrip from '@/components/mine/weather/ForecastStrip.vue'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
-import { cities } from '@/data/cities'
+import MonoIcon from '@/components/mine/icons/MonoIcon.vue'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] WeatherHomeView.vue — / 경로의 대시보드 (요구사항 3)
@@ -65,6 +66,14 @@ const router = useRouter()
 const configStore = useConfigStore()
 
 /* ────────────────────────────────────────────────
+   [추가] 도시 목록 — 기본 20곳 + 검색으로 담은 곳
+
+   전에는 data/cities.js 를 그대로 화면에 깔았습니다. 이제 목록이
+   사용자마다 달라지므로 store 가 주인입니다.
+   ──────────────────────────────────────────────── */
+const cityStore = useCityStore()
+
+/* ────────────────────────────────────────────────
    [1일차 요구사항 1] 배열 렌더링용 날씨 데이터
    [2일차 요구사항 1] 이 배열이 곧 반응형 상태(weatherList) 다.
 
@@ -90,7 +99,11 @@ const configStore = useConfigStore()
 /* [추가] 이 화면에 다시 들어온 것이라면 방금 보던 실시간 값으로 시작합니다.
    seed 로 되돌아갔다가 응답이 와서 다시 바뀌면, 기온이 깜빡이고 그
    날씨를 따라가는 음악까지 끊깁니다. (api/weather.js 의 lastAllCities 주석 참고) */
-const weatherList = ref(getCachedCities() ?? [...cities])
+/* ⚠️ cityStore 를 이 줄보다 위에서 선언합니다. const 는 선언 줄에 닿기
+      전에는 읽을 수 없어서(TDZ), 아래에 두면 setup 이 시작하자마자
+      ReferenceError 로 화면이 통째로 안 그려집니다. 빌드는 통과하므로
+      실행해 봐야 드러납니다. */
+const weatherList = ref(getCachedCities() ?? cityStore.allCities)
 
 /* [4일차 추가] 통신 중 여부. 상태바 문구를 바꾸는 데 씁니다.
    버튼을 잠그거나 스피너를 띄우지 않는 이유 — Mock 이 이미 깔려 있어
@@ -131,14 +144,181 @@ const favoriteStore = useFavoriteStore()
 // 길게 쓰는 대신 이름을 짧게 빌려 둡니다.
 const isFavorite = (cityId) => favoriteStore.isFavorite(cityId)
 
+/* 지역 검색 상태. 셋 다 이 화면 안에서만 의미가 있어 store 로 올리지
+   않았습니다 — 화면을 떠나면 사라지는 것이 맞는 값들입니다.
+     isSearchingPlace  통신 중
+     placeResults      찾은 후보들
+     placeMessage      결과가 없거나 실패했을 때의 안내 */
+const isSearchingPlace = ref(false)
+const placeResults = ref([])
+const placeMessage = ref('')
+
+/* ────────────────────────────────────────────────
+   [추가] 위치 정확도 한계
+
+   브라우저가 돌려주는 coords.accuracy 는 "이 좌표가 반경 몇 m 안에
+   있다" 는 뜻입니다. 값이 클수록 못 믿을 값입니다.
+
+     휴대폰 GPS      5 ~ 50m
+     노트북 WiFi     30 ~ 3,000m
+     IP 기반 추정    10,000 ~ 100,000m   ← ISP 허브 위치가 잡힙니다
+
+   실제로 판교에서 열었는데 대전이 잡히는 일이 있었습니다. WiFi 매칭에
+   실패해 IP 로 떨어진 경우입니다. 우리 도시들은 서로 50km 안팎으로
+   떨어져 있어서, 반경 25km 를 넘는 좌표로는 어느 도시가 가까운지
+   판단할 수 없습니다. 그런 값은 없는 것으로 칩니다.
+   ──────────────────────────────────────────────── */
+const ACCURACY_LIMIT_M = 25000
+
+/* ── 위치를 두 번 시도하는 이유 ──────────────────────────
+   처음에는 정밀 설정 하나만 썼습니다.
+
+     enableHighAccuracy: true   GPS 칩을 쓰게 합니다 (휴대폰에서 정확)
+     maximumAge: 0              캐시 금지 — 움직였는데 옛 좌표를 쓰지 않게
+
+   그런데 데스크톱에는 GPS 칩이 없어서, 이 조합이면 WiFi 스캔을 새로
+   돌려야 하고 종종 12초를 넘겨 시간 초과가 납니다. 실제로 "기본 도시
+   보정 건너뜀" 만 찍히고 위치가 영영 안 잡히는 일이 있었습니다.
+
+   그래서 실패하면 조건을 낮춰 한 번 더 물어봅니다. 덜 정확해도
+   "어느 도시가 가까운가" 를 가리는 데는 충분합니다.
+   ──────────────────────────────────────────────── */
+const GEO_PRECISE = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+
+/* 두 번째 시도는 캐시를 허용합니다(5분).
+
+   ── 캐시가 위험한 이유, 그리고 그걸 어떻게 다루는가 ──
+   maximumAge 는 "이만큼 낡은 값까지는 새로 재지 말고 그냥 써라" 입니다.
+   그래서 이동했는데도 아까 그 좌표가 그대로 나올 수 있습니다.
+
+   문제는 낡았다는 것 자체가 아니라 **낡았는지 알 수 없다는 것**이었습니다.
+   응답에는 timestamp 가 함께 오므로, 받아서 얼마나 지난 값인지 볼 수 있습니다.
+   그래서 캐시는 허용하되 아래 isUsablePosition 이 두 가지를 검사합니다.
+
+     · 얼마나 낡았나  (POSITION_MAX_AGE_MS)
+     · 얼마나 정확한가 (ACCURACY_LIMIT_M)
+
+   캐시를 아예 막으면 측위가 느리거나 실패하는 환경에서 아무것도 못 하고,
+   무조건 받으면 엉뚱한 도시를 기본값으로 잡습니다. 받아 놓고 거르는 것이
+   두 손해를 다 피하는 방법입니다. */
+const GEO_LOOSE = { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+
+// 10분보다 낡은 좌표는 쓰지 않습니다. 그 사이에 도시 하나쯤은 옮길 수 있습니다.
+const POSITION_MAX_AGE_MS = 10 * 60 * 1000
+
+const isUsablePosition = (position) => {
+  const ageMs = Date.now() - position.timestamp
+  const accuracy = Math.round(position.coords.accuracy)
+
+  if (accuracy > ACCURACY_LIMIT_M) {
+    console.warn(`⚠️ [geo] 오차 반경 ${Math.round(accuracy / 1000)}km — 어느 도시가 가까운지 가릴 수 없어 쓰지 않습니다.`)
+    return false
+  }
+
+  if (ageMs > POSITION_MAX_AGE_MS) {
+    console.warn(`⚠️ [geo] ${Math.round(ageMs / 60000)}분 전 좌표라 쓰지 않습니다.`)
+    return false
+  }
+
+  console.log(`📍 [geo] 좌표 ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)} · 오차 ${accuracy}m · ${Math.round(ageMs / 1000)}초 전`)
+  return true
+}
+
+/* 숫자 코드만 찍으면 무엇 때문에 막혔는지 알 수 없습니다.
+   1 은 브라우저 설정, 2 는 OS 위치 서비스, 3 은 네트워크·시간 문제로
+   해결 방법이 전부 다릅니다. */
+const describeGeoError = (error) =>
+  ({
+    1: '권한 거부 — 주소창 자물쇠에서 위치를 허용으로',
+    2: '위치 확인 불가 — 맥은 시스템 설정 > 개인정보 보호 > 위치 서비스에서 Chrome 을 켜야 합니다',
+    3: '시간 초과',
+  })[error.code] ?? '알 수 없는 오류'
+
+/* ── 개발 중에만 쓰는 좌표 흉내 ──────────────────────────
+   맥 데스크톱은 Core Location 이 막히면 브라우저 설정과 무관하게
+   좌표를 못 줍니다(오류 코드 2). 그러면 위치와 관련된 기능을 아예
+   확인할 수 없어서, 개발 중에는 좌표를 손으로 넣을 수 있게 했습니다.
+
+     localStorage.setItem('wx-geo-mock', '37.3947,127.1112')
+     location.reload()
+
+   되돌릴 때는  localStorage.removeItem('wx-geo-mock')
+
+   ⚠️ import.meta.env.DEV 는 빌드하면 false 로 고정됩니다. 그래서 아래
+      블록은 배포본에서 통째로 사라집니다(Vite 가 죽은 코드로 지웁니다).
+      운영 코드에 테스트용 뒷문을 남기지 않으려는 장치입니다. */
+const readMockPosition = () => {
+  if (!import.meta.env.DEV) return null
+
+  const raw = localStorage.getItem('wx-geo-mock')
+  if (!raw) return null
+
+  const [lat, lon] = raw.split(',').map(Number)
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return null
+
+  console.info(`🧪 [geo] 흉내낸 좌표를 씁니다 — ${lat}, ${lon}`)
+  return { coords: { latitude: lat, longitude: lon, accuracy: 30 }, timestamp: Date.now() }
+}
+
+/* 정밀 → 실패하면 간이. 둘 다 실패해야 진짜 실패입니다. */
+const requestPosition = () =>
+  new Promise((resolve, reject) => {
+    const mock = readMockPosition()
+    if (mock) return resolve(mock)
+
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (firstError) => {
+        console.warn(`⚠️ [geo] 정밀 측정 실패 (${describeGeoError(firstError)}) — 간이 측정으로 다시 시도합니다.`)
+        navigator.geolocation.getCurrentPosition(resolve, reject, GEO_LOOSE)
+      },
+      GEO_PRECISE,
+    )
+  })
+
+/* [추가] 방금 담은 도시.
+
+   담자마자 카드가 눈에 보여야 "담겼구나" 를 압니다. 그런데 목록은
+   이름순이라 새 도시가 한가운데 박히고, 좁은 화면에서는 접힌 여섯 장
+   밖으로 밀려나 아예 안 보입니다.
+
+   그래서 이번에 담은 것만 잠깐 맨 앞에 세웁니다. 즐겨찾기처럼 저장하지
+   않는 이유 — "방금" 은 지금 이 화면에서만 의미가 있습니다.
+   새로고침하면 평범한 도시로 돌아가는 게 맞습니다. */
+const justAddedId = ref(null)
+
+/* [추가] "현재 위치가 ○○ 로 바뀐 것 같아요" 제안.
+
+   자동으로 화면을 바꾸지 않는 것이 핵심입니다. 서울 날씨를 보고 있는데
+   이동했다고 화면이 저 혼자 부산으로 넘어가면 당황스럽습니다.
+   제안만 띄우고, 누를지는 사용자가 정합니다. */
+const nearbySuggestion = ref(null)
+
+/* 사용자가 카드를 한 번이라도 직접 골랐는가.
+   위치 조회는 몇 초 걸리는데, 그 사이 사용자가 다른 도시를 눌렀다면
+   뒤늦게 도착한 위치가 그 선택을 덮어서는 안 됩니다. */
+const hasUserPickedCity = ref(false)
+
 /* ────────────────────────────────────────────────
    [2일차 요구사항 1] 반응형 상태 관리
    ──────────────────────────────────────────────── */
 /* 히어로에 띄울 도시.
 
-   [추가] 가장 최근에 즐겨찾기한 도시로 시작합니다. 즐겨찾기 목록의
-   첫 칸이 곧 대표 도시라는 규칙(favoriteStore 주석 참고)을 화면에서
-   지키는 자리입니다. 즐겨찾기가 하나도 없으면 예전처럼 첫 도시(서울).
+   ── 왜 현재 위치가 즐겨찾기보다 먼저인가 ────────────────
+   한때 반대로 두었습니다. 즐겨찾기 맨 앞을 "사용자가 명시적으로 정한
+   대표" 로 보고, 위치는 그게 없을 때만 쓰게 했습니다.
+
+   바꾼 이유는 두 가지입니다.
+     · 날씨 앱은 현재 위치부터 보여 주는 것이 사람들이 아는 방식입니다
+     · 즐겨찾기는 어차피 목록 맨 앞에 있어서 한 번만 누르면 됩니다.
+       기본값을 위치로 줘도 잃는 것이 없습니다
+
+   이 줄은 위치 응답이 오기 전 잠깐 쓰는 값입니다. 실제 순서는
+     1) 현재 위치에서 가까운 도시   ← onMounted 에서 뒤늦게 덮어씀
+     2) 즐겨찾기 맨 앞
+     3) 첫 도시(서울)
+   위치 조회는 비동기라 이 줄에서는 기다릴 수 없어, 먼저 2번으로
+   그려 두고 좌표가 오면 갈아끼웁니다.
 
    ⚠️ 그래서 favoriteStore 를 바로 위에서 선언합니다. const 는 선언 줄에
       닿기 전에는 읽을 수 없어서(TDZ), 아래에 두면 setup 이 시작하자마자
@@ -374,6 +554,9 @@ onMounted(() => {
   cardObserver = new ResizeObserver(measureCardRow)
   watchCardBox()
 
+  applyNearestAsDefault()
+  document.addEventListener('visibilitychange', onTabVisible)
+
   if (hasFocusedOnce) return
   if (!window.matchMedia(`(min-width: ${FOCUS_MIN_WIDTH}px) and (pointer: fine)`).matches) return
 
@@ -462,10 +645,20 @@ const sortedWeatherList = computed(() => {
   const rank = (cityId) => favoriteStore.favoriteRank(cityId)
 
   return list.sort((a, b) => {
+    /* 1) 즐겨찾기가 언제나 맨 앞입니다. 별을 누르는 행동의 의미가
+          "이건 위에 둬" 인데, 방금 담은 도시가 그 위로 끼어들면
+          그 약속이 깨집니다. */
     const rankA = rank(a.id)
     const rankB = rank(b.id)
-
     if (rankA !== rankB) return rankA < rankB ? -1 : 1
+
+    /* 2) 즐겨찾기가 아닌 것들 사이에서는 방금 담은 도시가 앞으로.
+          담자마자 눈에 보여야 "담겼구나" 를 알 수 있습니다. */
+    const justA = a.id === justAddedId.value
+    const justB = b.id === justAddedId.value
+    if (justA !== justB) return justA ? -1 : 1
+
+    // 3) 사용자가 고른 정렬 (이름순 · 기온 높은순)
     return byChosenOrder(a, b)
   })
 })
@@ -477,6 +670,8 @@ const displayWeatherList = computed(() =>
     ...city,
     shownTemp: convert(city.temp),
     isFavorite: isFavorite(city.id),
+    // 검색으로 담은 도시만 카드에서 뺄 수 있습니다 (기본 20곳은 못 지웁니다)
+    isCustom: cityStore.isCustom(city.id),
   })),
 )
 
@@ -486,6 +681,8 @@ const displayWeatherList = computed(() =>
 watch(displayWeatherList, () => nextTick(watchCardBox))
 
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onTabVisible)
+  clearTimeout(placeSearchTimer)
   cardObserver?.disconnect()
   cardObserver = null
 })
@@ -575,6 +772,7 @@ const withParticle = (name) => {
 // [요구사항 4] WeatherCard 의 select-card 수신.
 // 자식은 "이 도시가 눌렸다"는 사실만 알리고, 상태를 고치는 건 부모 몫입니다.
 const selectCity = (city) => {
+  hasUserPickedCity.value = true
   selectedId.value = city.id
   selectedCityInfo.value = `${withParticle(city.name)} 선택되었습니다.`
 }
@@ -609,6 +807,315 @@ const showDetail = (city) => {
 // 이것이 v-model 이 내부에서 하는 일과 정확히 같습니다.
 const onUpdateQuery = (value) => {
   searchQuery.value = value
+
+  /* 검색어를 고치면 지난 후보는 지웁니다. 안 지우면 "속초" 를 찾아
+     놓고 "강릉" 을 타이핑하는 동안 속초 후보가 남아 있어, 무엇에 대한
+     결과인지 알 수 없게 됩니다. */
+  placeResults.value = []
+  placeMessage.value = ''
+
+  schedulePlaceSearch()
+}
+
+/* ────────────────────────────────────────────────
+   [추가] 담긴 목록에 없으면 알아서 지역을 찾아 줍니다
+
+   전에는 "찾아 담기" 버튼을 한 번 더 눌러야 했습니다.
+   그런데 사용자가 '속초' 를 친 순간 "속초를 찾겠다" 는 의도는 이미
+   끝났습니다. 거기서 한 번 더 묻는 것은 앱의 사정(로컬 목록에 없어서
+   API 를 불러야 함)을 사용자에게 떠넘기는 일입니다.
+
+   버튼을 둘 유일한 이유였던 "호출 아끼기" 는 조건으로 대신합니다.
+     · 담긴 목록에서 이미 찾았으면 부르지 않습니다
+     · 두 글자 미만이면 부르지 않습니다 ('서' 만 쳐도 부르면 낭비)
+     · 타이핑이 멈추고 0.5초 뒤에 한 번만 (디바운스)
+
+   담는 것은 여전히 눌러야 합니다. 후보가 저절로 뜨는 것과
+   저절로 담기는 것은 다릅니다.
+   ──────────────────────────────────────────────── */
+const PLACE_SEARCH_DELAY = 500
+let placeSearchTimer = null
+
+const schedulePlaceSearch = () => {
+  clearTimeout(placeSearchTimer)
+
+  placeSearchTimer = setTimeout(() => {
+    const keyword = searchQuery.value.trim()
+
+    if (keyword.length < 2) return
+    // 이미 담긴 도시로 걸러졌다면 굳이 통신할 이유가 없습니다.
+    if (filteredWeatherList.value.length > 0) return
+
+    findPlace()
+  }, PLACE_SEARCH_DELAY)
+}
+
+/* ────────────────────────────────────────────────
+   [추가] 지역 검색 — 담아 둔 목록에 없으면 OpenWeatherMap 에 물어봅니다
+
+   위 filteredWeatherList 는 이미 담긴 도시만 걸러 냅니다. 거기 없다고
+   "그런 도시는 없다" 가 아니라 "아직 담지 않았다" 일 뿐입니다.
+   그래서 결과가 비었을 때 OpenWeatherMap 의 Geocoding 으로 넘깁니다.
+   ──────────────────────────────────────────────── */
+const findPlace = async () => {
+  const keyword = searchQuery.value.trim()
+  if (!keyword) return
+
+  isSearchingPlace.value = true
+  placeMessage.value = ''
+  placeResults.value = []
+
+  try {
+    const found = await searchPlaces(keyword)
+    placeResults.value = found
+
+    // 한글 색인이 도시마다 들쭉날쭉합니다. 없을 때 왜 없는지, 무엇을
+    // 해 보면 되는지까지 알려 줘야 사용자가 다음 행동을 할 수 있습니다.
+    if (!found.length) placeMessage.value = `‘${keyword}’ 을(를) 찾지 못했습니다. 영문 이름으로도 찾아보세요 (예: Sokcho)`
+
+    console.log(`🔍 [geo] '${keyword}' → ${found.length}건`, found)
+  } catch (error) {
+    placeMessage.value = '지역 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+    console.error('🔴 [geo] 지역 검색 실패', error)
+  } finally {
+    isSearchingPlace.value = false
+  }
+}
+
+/* ────────────────────────────────────────────────
+   [추가] 내 위치로 찾기
+
+   이 앱은 처음부터 좌표로만 날씨를 부릅니다. 그래서 GPS 가 주는 숫자
+   두 개를 그대로 꽂으면 끝입니다 — 검색으로 담는 흐름의 단축키인 셈입니다.
+   찾은 결과는 후보 목록에 한 건으로 올려, 검색 결과와 똑같이
+   "눌러서 담는" 동작으로 이어집니다. 새 개념을 만들지 않았습니다.
+
+   ⚠️ 앱을 켜자마자 부르지 않습니다. 브라우저는 이 함수를 부르는 순간
+      권한을 묻는데, 아직 앱이 뭔지도 모르는 사람에게 팝업을 띄우면
+      대부분 거부합니다. 크롬은 거부가 쌓이면 아예 차단해 버리고,
+      그러면 주소창 자물쇠를 눌러 직접 풀어야 합니다.
+      버튼을 누른 사람은 이미 위치를 알려 줄 마음이 있는 사람입니다.
+   ──────────────────────────────────────────────── */
+const findMyPlace = () => {
+  if (!navigator.geolocation) {
+    placeMessage.value = '이 브라우저는 위치 기능을 지원하지 않습니다.'
+    return
+  }
+
+  isSearchingPlace.value = true
+  placeMessage.value = ''
+  placeResults.value = []
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { coords } = position
+
+        /* 오차가 크면 엉뚱한 동네를 담게 됩니다. 막지는 않되 —
+           사용자가 직접 누른 동작이라 아무것도 안 나오면 고장으로
+           보입니다 — 무엇이 잡혔는지 알 수 있게 안내를 함께 띄웁니다. */
+        if (!isUsablePosition(position)) {
+          placeMessage.value = `위치가 정확하지 않습니다(오차 반경 약 ${Math.round(coords.accuracy / 1000)}km). 아래가 맞지 않으면 지역 이름으로 검색해 주세요.`
+        }
+
+        const place = await searchByCoords(coords.latitude, coords.longitude)
+
+        if (!place) {
+          placeMessage.value = '현재 위치의 지역 이름을 찾지 못했습니다.'
+          return
+        }
+
+        placeResults.value = [place]
+        console.log('📍 [geo] 현재 위치', place)
+      } catch (error) {
+        placeMessage.value = '현재 위치를 확인하는 데 실패했습니다.'
+        console.error('🔴 [geo] 역방향 조회 실패', error)
+      } finally {
+        isSearchingPlace.value = false
+      }
+    },
+    (error) => {
+      isSearchingPlace.value = false
+
+      /* 거부(1)와 그 밖(2 위치 불명 · 3 시간 초과)을 나눠 안내합니다.
+         거부는 브라우저 설정을 열어야 풀리는 문제라, "다시 시도" 를
+         권하면 눌러도 아무 일이 없어 사용자가 고장으로 오해합니다. */
+      placeMessage.value =
+        error.code === error.PERMISSION_DENIED
+          ? '위치 권한이 꺼져 있습니다. 주소창의 자물쇠를 눌러 허용으로 바꾸거나, 지역 이름으로 검색해 주세요.'
+          : '현재 위치를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+
+      console.warn('⚠️ [geo] 위치 요청 실패', error.code, error.message)
+    },
+    GEO_PRECISE,
+  )
+}
+
+/* ────────────────────────────────────────────────
+   [추가] 즐겨찾기가 없을 때만, 현재 위치에서 가까운 도시로 시작
+
+   지금까지는 즐겨찾기가 없으면 무조건 서울이었습니다. 부산 사는 사람이
+   앱을 켜면 서울 날씨부터 보는 셈이었죠.
+
+   ⚠️ 즐겨찾기가 있어도 묻습니다. 날씨 앱에서 "지금 여기" 는 즐겨찾기보다
+      즉각적인 관심사입니다. 즐겨찾기한 도시는 목록 맨 앞에 있으니
+      보고 싶으면 한 번 누르면 됩니다.
+
+   ⚠️ 카드를 새로 담지 않습니다. 이미 목록에 있는 도시 중에서 고르기만
+      합니다. 켤 때마다 카드가 하나씩 늘어나면 곤란합니다.
+
+   첫 방문자에게는 여기서 브라우저 권한 팝업이 뜹니다. 허용할지 말지는
+   사용자가 정할 일이고, 거부해도 앱은 서울로 시작해 멀쩡히 동작합니다.
+   ──────────────────────────────────────────────── */
+let hasLocatedOnce = false
+
+const applyNearestAsDefault = async () => {
+  if (!navigator.geolocation) return
+
+  try {
+    const position = await requestPosition()
+
+    /* "한 번은 위치를 받아 봤다" 는 사실은 그 값을 쓸 수 있느냐와 별개입니다.
+       낡거나 부정확해서 이번엔 못 쓰더라도 브라우저·OS 는 멀쩡하다는 뜻이라,
+       나중에 탭으로 돌아왔을 때 다시 재 볼 자격이 있습니다. */
+    hasLocatedOnce = true
+
+    if (!isUsablePosition(position)) return
+
+    const { coords } = position
+    const nearest = findNearestOf(weatherList.value, coords.latitude, coords.longitude)
+    if (!nearest) return
+
+    /* 좌표가 오기까지 몇 초 걸립니다. 그 사이 사용자가 다른 카드를
+       눌렀다면 그쪽이 우선입니다 — 뒤늦게 온 위치가 사용자의 클릭을
+       덮으면 화면이 저 혼자 움직이는 것처럼 보입니다. */
+    if (hasUserPickedCity.value) return
+
+    selectedId.value = nearest.id
+    selectedCityInfo.value = `현재 위치에서 가장 가까운 ${nearest.name} 입니다.`
+  } catch (error) {
+    // 사용자가 요청한 적 없는 동작이라 화면에는 아무 말도 하지 않습니다.
+    console.warn(`⚠️ [geo] 기본 도시 보정 건너뜀 — ${describeGeoError(error)}`)
+  }
+}
+
+/* ────────────────────────────────────────────────
+   [추가] 탭으로 돌아왔을 때 위치를 다시 재기
+
+   위치는 앱을 켤 때 한 번만 쟀습니다. 그래서 폰을 주머니에 넣고 이동한 뒤
+   다시 열면 아까 그 도시가 그대로 떠 있었습니다.
+
+   watchPosition 으로 계속 감시할 수도 있지만 GPS 를 켜 둔 채 배터리를
+   먹습니다. 우리 도시들은 50km 간격이라 그만한 정밀도가 필요하지도 않고요.
+   실제로 이동은 앱을 안 보는 동안 일어나므로, **화면으로 돌아온 순간**에만
+   다시 재면 충분합니다.
+
+   ⚠️ 재서 알아낸 도시로 화면을 바꾸지 않습니다. 보고 있던 도시가 저 혼자
+      바뀌면 당황스럽습니다. 상태바에 제안만 띄우고 누를지는 사용자가 정합니다.
+   ──────────────────────────────────────────────── */
+const onTabVisible = async () => {
+  if (document.visibilityState !== 'visible') return
+  // 처음 한 번도 못 잡았으면 제안할 기준이 없습니다. 그때는 최초 로직이 맡습니다.
+  if (!hasLocatedOnce || !navigator.geolocation) return
+
+  try {
+    const position = await requestPosition()
+    if (!isUsablePosition(position)) return
+
+    const { coords } = position
+    const nearest = findNearestOf(weatherList.value, coords.latitude, coords.longitude)
+
+    // 지금 보고 있는 도시와 같으면 제안할 것이 없습니다.
+    if (!nearest || nearest.id === selectedId.value) {
+      nearbySuggestion.value = null
+      return
+    }
+
+    nearbySuggestion.value = nearest
+    console.log('📍 [geo] 위치가 바뀐 것 같습니다 →', nearest.name)
+  } catch (error) {
+    console.warn(`⚠️ [geo] 복귀 시 위치 재조회 실패 — ${describeGeoError(error)}`)
+  }
+}
+
+/* 제안을 받아들이면 그 도시로 옮깁니다. */
+const acceptSuggestion = () => {
+  const city = nearbySuggestion.value
+  if (!city) return
+
+  hasUserPickedCity.value = true
+  selectedId.value = city.id
+  selectedCityInfo.value = `${withParticle(city.name)} 선택되었습니다.`
+  nearbySuggestion.value = null
+}
+
+/* 좌표에서 가장 가까운 도시 하나. cityStore 가 좌표를 들고 있지 않은
+   기본 20곳까지 함께 봐야 해서, 명부(CITY_QUERY)에서 좌표를 꺼내 씁니다. */
+const findNearestOf = (list, lat, lon) => {
+  let best = null
+  let bestScore = Infinity
+
+  for (const city of list) {
+    const meta = CITY_QUERY[city.id] ?? cityStore.customCities.find((c) => c.id === city.id)
+    if (!meta) continue
+
+    // 위도 1도 ≈ 111km, 경도는 한국 위도에서 0.8 정도로 보정합니다.
+    const dy = (meta.lat - lat) * 111
+    const dx = (meta.lon - lon) * 111 * 0.8
+    const score = dy * dy + dx * dx
+
+    if (score < bestScore) {
+      bestScore = score
+      best = city
+    }
+  }
+
+  return best
+}
+
+/* 후보 하나를 목록에 담습니다.
+
+   담자마자 그 도시의 실제 날씨를 부릅니다 — 자리표(20℃ · '—')가
+   화면에 오래 남아 있으면 방금 담은 것이 고장 난 것처럼 보입니다.
+   검색어를 비우는 것도 같은 이유입니다. 담았는데 화면에 안 보이면
+   담긴 건지 알 수 없으니, 필터를 풀어 목록으로 돌려보냅니다. */
+const addPlace = async (place) => {
+  const added = cityStore.addCity(place)
+
+  placeResults.value = []
+  placeMessage.value = ''
+
+  if (!added) {
+    selectedCityInfo.value = `${place.name} 은(는) 이미 목록에 있습니다.`
+    return
+  }
+
+  searchQuery.value = ''
+  weatherList.value = [...weatherList.value, ...cityStore.allCities.filter((c) => c.id === place.id)]
+  selectedId.value = place.id
+  justAddedId.value = place.id
+  selectedCityInfo.value = `${withParticle(place.name)} 목록에 담았습니다.`
+
+  try {
+    const fresh = await fetchCityWeather(place.id)
+    weatherList.value = weatherList.value.map((c) => (c.id === place.id ? fresh : c))
+    console.log(`🟢 [API] ${place.name} 실시간 조회 완료`, fresh)
+  } catch (error) {
+    console.error(`🔴 [API] ${place.name} 조회 실패`, error)
+  }
+}
+
+/* 담은 도시를 목록에서 뺍니다. 기본 20곳에는 이 버튼이 없습니다
+   (카드가 isCustom 일 때만 ✕ 를 그립니다). */
+const removeCity = (city) => {
+  cityStore.removeCity(city.id)
+  weatherList.value = weatherList.value.filter((c) => c.id !== city.id)
+  if (justAddedId.value === city.id) justAddedId.value = null
+
+  // 지운 도시를 보고 있었다면 목록의 첫 도시로 돌아갑니다.
+  if (selectedId.value === city.id) selectedId.value = weatherList.value[0]?.id
+
+  selectedCityInfo.value = `${city.name} 을(를) 목록에서 뺐습니다.`
 }
 
 /* [2일차 추가 → store] WeatherCard 의 toggle-favorite 수신.
@@ -693,7 +1200,48 @@ const toggleFavorite = (city) => {
            안에 있지만, 스크립트적으로는 이 부모 스코프에서 컴파일·평가됩니다.
            그래서 여기서 :current-query 바인딩과 @update-query 수신이 그대로 가능합니다. -->
       <BaseDashboardCard class="wx-search-panel">
-        <SearchBar ref="searchBar" :current-query="searchQuery" @update-query="onUpdateQuery" />
+        <div class="wx-search-row">
+          <SearchBar ref="searchBar" :current-query="searchQuery" @update-query="onUpdateQuery" class="wx-search-main" />
+
+          <!-- [추가] 내 위치로 찾기.
+               검색창 옆에 두는 이유 — 하는 일이 검색과 같습니다(지역을 찾아
+               담기). 다른 곳에 두면 "이건 뭐 하는 버튼이지" 가 됩니다.
+               권한 팝업은 이 버튼을 누른 뒤에야 뜹니다.
+
+               아이콘만 뒀다가 글자를 붙였습니다. 조준점(⊙)은 지도 앱에서
+               흔한 기호지만, 처음 본 사람은 "이게 뭐지" 부터 묻습니다.
+               툴팁은 마우스를 올려야 보이고 터치 기기에는 아예 안 뜹니다. -->
+          <button class="wx-locate" :disabled="isSearchingPlace" @click="findMyPlace">
+            <MonoIcon name="locate" :size="15" :width="1.5" />
+            내 위치
+          </button>
+        </div>
+
+        <!-- 검색 결과가 아직 있을 때도 후보를 보여 줘야 합니다 —
+             '내 위치' 는 검색어와 무관하게 눌릴 수 있으니까요.
+             (아래 카드 목록의 '결과 없음' 자리와 같은 내용물입니다) -->
+        <div v-if="placeResults.length || placeMessage" class="wx-places-box">
+          <p v-if="placeMessage" class="wx-empty-note">{{ placeMessage }}</p>
+
+          <ul v-if="placeResults.length" class="wx-places">
+            <li v-for="place in placeResults" :key="place.id">
+              <button class="wx-place" @click="addPlace(place)">
+                <span class="wx-place-name">{{ place.name }}</span>
+                <span class="wx-place-label">{{ place.label }}</span>
+
+                <!-- 오른쪽 끝에 "＋ 담기".
+                     처음엔 왼쪽에 + 아이콘만 뒀는데 눈에 띄지 않았습니다.
+                     아이콘만으로는 "무슨 일이 일어나는지" 가 안 읽혀서,
+                     동작을 글자로 함께 적었습니다. 항목마다 반복되지만
+                     오른쪽 끝에 모여 있어 지역 이름을 가리지 않습니다. -->
+                <span class="wx-place-add">
+                  <MonoIcon name="plus" :size="12" :width="1.8" />
+                  담기
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
       </BaseDashboardCard>
 
       <!-- [1일차 요구사항 1] v-for 로 반복 출력 · :key 에는 고유 id 를 바인딩
@@ -742,10 +1290,12 @@ const toggleFavorite = (city) => {
           :city-item="city"
           :is-selected="city.id === selectedId"
           :is-favorite="city.isFavorite"
+          :is-custom="city.isCustom"
           :hot-temp="HOT_TEMP"
           @select-card="selectCity"
           @click-detail="showDetail"
           @toggle-favorite="toggleFavorite"
+          @remove-card="removeCity"
         />
       </div>
 
@@ -759,8 +1309,15 @@ const toggleFavorite = (city) => {
         <span class="wx-cards-more-caret" aria-hidden="true"></span>
       </button>
 
-      <!-- [2일차 요구사항 4-c] 일치하는 데이터가 없으면 없다고 안내합니다 -->
-      <p v-if="displayWeatherList.length === 0" class="wx-empty">“{{ searchQuery }}” 와(과) 일치하는 도시가 없습니다.</p>
+      <!-- [2일차 요구사항 4-c] 일치하는 데이터가 없으면 없다고 안내합니다.
+           [추가] 여기서 끝내지 않고 지역 검색으로 이어 줍니다 — 담긴 목록에
+           없다는 것은 "그런 도시가 없다" 가 아니라 "아직 담지 않았다" 니까요. -->
+      <!-- 후보와 안내는 검색창 바로 아래 한 곳에서만 그립니다.
+           여기까지 내려와서 또 보여 주면 같은 목록이 화면에 두 번 뜹니다. -->
+      <p v-if="displayWeatherList.length === 0" class="wx-empty">
+        “{{ searchQuery }}” 는 아직 목록에 없습니다.<br />
+        {{ isSearchingPlace ? '찾는 중…' : '검색창 아래에 뜨는 지역을 눌러 담을 수 있습니다.' }}
+      </p>
     </section>
 
     <!-- [1일차 요구사항 4] 상태바 — 자식이 올려보낸 이벤트의 최종 결과가 여기 찍힙니다.
@@ -782,7 +1339,15 @@ const toggleFavorite = (city) => {
         <span class="wx-status-tag">Offline</span>
         실시간 조회에 실패해 저장된 데이터를 보여 주고 있습니다.
       </p>
+      <!-- [추가] 탭으로 돌아왔을 때 위치가 바뀐 것 같으면 제안합니다.
+           화면을 저 혼자 바꾸지 않고 여기서 물어봅니다. -->
+      <p v-else-if="nearbySuggestion">현재 위치가 {{ nearbySuggestion.name }} 근처로 바뀐 것 같아요.</p>
+
       <p v-else>{{ selectedCityInfo }}</p>
+
+      <!-- 제안을 받아들이는 버튼. 다시 시도 버튼과 같은 자리·같은 말투라
+           상태바에 새 모양이 늘지 않습니다. -->
+      <button v-if="nearbySuggestion && !isLoading && !hasError" class="wx-status-retry" @click="acceptSuggestion">{{ nearbySuggestion.name }} 보기</button>
 
       <!-- 실패 상태에서 빠져나갈 길.
 
@@ -1047,7 +1612,136 @@ const toggleFavorite = (city) => {
   padding: 26px 4px;
   color: var(--dim);
   font-size: 15px;
+  line-height: 1.8;
   text-align: center;
+}
+
+.wx-empty-note {
+  margin: 0 0 12px;
+  color: var(--dimmer);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── 검색창 줄 ────────────────────────────────────────────
+   검색 입력이 남는 폭을 다 쓰고, 위치 버튼만 오른쪽에 붙습니다. */
+/* align-items 를 flex-end 로 두는 이유 — SearchBar 는 캡션(SEARCH) 위에
+   입력줄이 있는 두 겹짜리입니다. 가운데 정렬하면 위치 버튼이 캡션 옆
+   허공에 뜹니다. 아래끝을 맞춰 입력줄과 나란히 세웁니다. */
+.wx-search-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* ⚠️ .wx-search-input 이라고 짓지 않습니다 — SearchBar 안쪽 <input> 이
+   이미 그 이름을 쓰고 있어서, 나중에 둘 중 어느 쪽 규칙인지 헷갈립니다. */
+.wx-search-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 히어로의 Outfit 버튼과 같은 캡션 말투 — 채우지 않고 색으로만 말합니다. */
+.wx-locate {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  /* 입력줄 아래 테두리(padding-bottom 10px)와 눈높이를 맞춥니다 */
+  margin-bottom: 8px;
+  padding: 4px 2px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.wx-locate:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.wx-locate:disabled {
+  color: var(--dimmer);
+  cursor: default;
+}
+
+/* 검색창 아래 후보 상자 — 위쪽 헤어라인으로만 입력칸과 나눕니다 */
+.wx-places-box {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* ── 찾은 지역 후보 ────────────────────────────────────────
+   목록 항목은 헤어라인으로만 나눕니다. 카드처럼 상자를 그리면
+   바로 아래 도시 카드들과 무게가 같아져 무엇이 결과인지 흐려집니다. */
+.wx-places {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.wx-place {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 6px;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.wx-place:hover {
+  background: var(--hover);
+}
+
+/* "＋ 담기" — 평소 조용히 있다가 항목에 마우스를 올리면 밝아집니다.
+   margin-left: auto 로 오른쪽 끝에 붙습니다. */
+.wx-place-add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 10px;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  transition: color 0.2s;
+}
+
+.wx-place:hover .wx-place-add {
+  color: var(--fg);
+}
+
+.wx-place-name {
+  flex: none;
+  font-size: 15px;
+}
+
+/* 원문 이름 · 시도 · 나라. 같은 이름이 여러 곳일 때 고르는 단서입니다. */
+.wx-place-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dimmer);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── [4] 예보 배치 ────────────────────────────────────────── */

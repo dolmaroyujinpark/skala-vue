@@ -1,5 +1,6 @@
 import axios from 'axios'
-import { cities, CITY_QUERY } from '@/data/cities'
+import { cities, CITY_QUERY, makePlaceholderCity, findNearestCity } from '@/data/cities'
+import { toPlaceAlias } from '@/data/placeAliases'
 import { toFriendlyStatus } from '@/data/weatherLabels'
 
 // 도시 명부는 data/cities.js 한 곳에만 둡니다. 여기서 다시 export 하는 것은
@@ -61,9 +62,36 @@ const api = axios.create({
    좌표 표는 data/cities.js 의 ROSTER 에 있습니다. 도시를 추가하려면
    그 파일 한 곳만 고치면 API 조회와 화면 표시가 함께 따라옵니다. */
 
+/* ────────────────────────────────────────────────
+   도시 명부 — 고정 20곳 + 검색으로 담은 곳
+
+   [추가] 전에는 CITY_QUERY 하나만 봤습니다. 그 표는 data/cities.js 에
+   손으로 적어 둔 20곳이라, 사용자가 검색으로 담은 도시는 여기서
+   "알 수 없는 도시 코드" 가 되어 조회가 막혔습니다.
+
+   그래서 표를 복사해 두고 늘어날 수 있게 했습니다.
+
+   ⚠️ 왜 store 를 import 하지 않는가 —
+      추가 도시의 주인은 stores/cityStore.js 입니다. 이 파일이 그 store 를
+      직접 읽으면 api → store → (언젠가) api 로 도는 순환 참조가 생기고,
+      Pinia 가 준비되기 전에 이 모듈이 평가되면 터집니다.
+      대신 store 가 바뀔 때마다 이쪽으로 밀어 넣습니다(registerCities).
+      이 파일은 여전히 "바깥 세상과만 이야기하는" 자리로 남습니다.
+   ──────────────────────────────────────────────── */
+const cityRegistry = { ...CITY_QUERY }
+
+export const registerCities = (list = []) => {
+  for (const { id, lat, lon, name, region } of list) {
+    cityRegistry[id] = { lat, lon, name, region }
+  }
+}
+
+// 이 id 를 조회할 수 있는가. 화면이 "없는 도시" 안내를 띄울지 판단할 때 씁니다.
+export const isKnownCity = (cityId) => Boolean(cityRegistry[cityId])
+
 // 도시 하나가 좌표를 어떻게 넘기는지 — 두 엔드포인트가 같은 형태를 씁니다.
 const coordsOf = (cityId) => {
-  const meta = CITY_QUERY[cityId]
+  const meta = cityRegistry[cityId]
   if (!meta) throw new Error(`알 수 없는 도시 코드: ${cityId}`)
   return { lat: meta.lat, lon: meta.lon }
 }
@@ -181,7 +209,7 @@ const buildDaily = (list, tz) => {
    forecastData 는 없을 수 있습니다 — 목록 화면은 예보를 안 부르기 때문입니다.
    그때는 hourly/daily 를 비워 두고, 선택된 도시에 한해 나중에 채웁니다. */
 const buildCity = (cityId, currentData, forecastData = null) => {
-  const meta = CITY_QUERY[cityId]
+  const meta = cityRegistry[cityId]
   const tz = currentData.timezone ?? 32400
   const daily = forecastData ? buildDaily(forecastData.list ?? [], tz) : []
 
@@ -253,7 +281,7 @@ export const fetchCityWeather = async (cityId) => {
       allSettled 는 성공/실패를 각각 알려 주므로, 실패한 도시만 seed 로
       메우고 나머지는 실시간 값을 씁니다. */
 export const fetchAllCities = async () => {
-  const ids = Object.keys(CITY_QUERY)
+  const ids = Object.keys(cityRegistry)
   const results = await Promise.allSettled(ids.map((id) => fetchCityCurrent(id)))
 
   lastAllCities = results.map((result, index) => {
@@ -261,7 +289,9 @@ export const fetchAllCities = async () => {
 
     const id = ids[index]
     console.error(`🔴 [${id}] 실시간 조회 실패 — 저장된 값으로 대체합니다.`, result.reason?.message ?? result.reason)
-    return cities.find((city) => city.id === id)
+
+    // 명부에 있는 도시는 seed 로, 검색으로 담은 도시는 자리표로 대체합니다.
+    return cities.find((city) => city.id === id) ?? makePlaceholderCity({ id, ...cityRegistry[id] })
   })
 
   return lastAllCities
@@ -289,3 +319,103 @@ export const fetchAllCities = async () => {
 let lastAllCities = null
 
 export const getCachedCities = () => lastAllCities
+
+/* ════════════════════════════════════════════════════════════
+   [추가] 지역 검색 — 이름을 좌표로 (Geocoding API)
+
+   이 앱은 좌표로만 날씨를 부릅니다. 그래서 사용자가 "속초" 라고 적으면
+   먼저 그 이름을 좌표로 바꿔야 합니다. OpenWeatherMap 은 같은 키로
+   /geo/1.0/direct 를 열어 둡니다 — 새 키를 발급받을 필요가 없습니다.
+
+   baseURL 이 다른 이유 — 날씨는 /data/2.5, 지오코딩은 /geo/1.0 입니다.
+   위의 api 인스턴스는 /data/2.5 에 묶여 있어서 따로 부릅니다.
+
+   ── 한글 검색이 반쪽인 문제 ──────────────────────────────
+   실제로 돌려 보면 '제주' · '판교' 는 찾는데 '속초' 는 못 찾습니다.
+   OpenWeatherMap 의 한글 색인이 도시마다 들쭉날쭉합니다.
+   ('Sokcho' 로는 찾고, 응답의 local_names.ko 에는 '속초시' 가 들어 있습니다)
+
+   그래서 두 번 시도합니다.
+     1) "속초,KR"  나라를 못 박아 브라질의 동명 도시를 걸러냅니다
+     2) "속초"     그래도 없으면 나라 없이 한 번 더
+   둘 다 비면 화면이 "영문 이름으로도 찾아보세요" 라고 안내합니다.
+   ════════════════════════════════════════════════════════════ */
+const geoApi = axios.create({
+  baseURL: 'https://api.openweathermap.org/geo/1.0',
+  timeout: 8000,
+  params: { appid: API_KEY, limit: 5 },
+})
+
+/* 좌표를 그대로 id 로 씁니다 (소수점 셋째 자리까지 정수화).
+
+   순번(city_21)으로 하지 않은 이유 — 지웠다 다시 담으면 번호가 어긋나고,
+   주소창의 /weather/city_21 이 어제와 다른 도시를 가리키게 됩니다.
+   좌표는 그 지점 자체라 언제 어디서 담아도 같은 id 가 나옵니다.
+   덤으로 id 만 있으면 좌표를 되뽑을 수 있습니다. */
+const toGeoId = (lat, lon) => `geo_${Math.round(lat * 1000)}_${Math.round(lon * 1000)}`
+
+/* 응답 한 건을 이 앱이 쓰는 모양으로 옮깁니다.
+
+   name 에 local_names.ko 를 먼저 쓰는 이유 — 응답의 name 은 'Sokcho-si'
+   처럼 로마자입니다. 카드에 한글 이름이 필요합니다.
+   region 은 시/도(state)가 있으면 그것을, 없으면 나라 코드를 씁니다. */
+const toPlace = (row) => {
+  const near = row.country === 'KR' ? findNearestCity(row.lat, row.lon) : null
+
+  /* region 은 카드가 아니라 상세 화면에 적히는 줄입니다.
+       한국  '경상남도 거제시 부근'   ← 우리 명부에서 가장 가까운 곳
+       해외  'Ile-de-France' 또는 'FR'  ← 응답이 주는 대로 */
+  const region = near ? `${near.region} 부근` : (row.state ?? row.country)
+
+  return {
+    id: toGeoId(row.lat, row.lon),
+    // 카드에는 이 이름만 뜹니다 — '옥포동' · '해운대구'
+    name: row.local_names?.ko ?? row.name,
+    region,
+    lat: row.lat,
+    lon: row.lon,
+    /* 후보 목록에서 어디인지 가늠하는 줄.
+       같은 이름이 둘 나올 때 이 줄만 다릅니다
+       ('서면 · 경상북도 포항시 부근' vs '서면 · 강원특별자치도 춘천시 부근') */
+    label: near ? region : `${row.name} · ${row.country}`,
+  }
+}
+
+export const searchPlaces = async (query) => {
+  const keyword = query.trim()
+  if (!keyword) return []
+
+  /* 세 번 시도합니다. 앞에서 걸리면 뒤는 부르지 않습니다.
+
+     1) "속초,KR"  나라를 못 박아 브라질의 동명 도시를 걸러냅니다
+     2) "속초"      나라를 풀어 해외 지명도 찾을 수 있게 ('파리' · '방콕')
+     3) "Sokcho,KR" 한글로 못 찾는 국내 지명을 보정표로 우회
+                    (data/placeAliases.js — 전국 135곳을 돌려 만든 표) */
+  const attempts = [`${keyword},KR`, keyword]
+
+  const alias = toPlaceAlias(keyword)
+  if (alias) attempts.push(`${alias},KR`)
+
+  for (const q of attempts) {
+    const { data } = await geoApi.get('/direct', { params: { q } })
+    if (Array.isArray(data) && data.length) return data.map(toPlace)
+  }
+
+  return []
+}
+
+/* ── 좌표 → 지명 (역방향 지오코딩) ────────────────────────
+   GPS 가 알려 주는 것은 숫자 두 개뿐입니다. 카드에 '37.5, 127.0' 이라고
+   적을 수는 없으니 그 지점의 이름을 물어봅니다.
+   응답 모양은 /direct 와 같아서 toPlace 를 그대로 씁니다. */
+export const searchByCoords = async (lat, lon) => {
+  const { data } = await geoApi.get('/reverse', { params: { lat, lon, limit: 1 } })
+  if (!Array.isArray(data) || !data.length) return null
+
+  /* ⚠️ 응답의 좌표가 아니라 GPS 좌표를 씁니다.
+     역지오코딩은 "가장 가까운 등록 지점" 을 돌려주는데(강남역 → '서울'),
+     그 지점의 좌표로 날씨를 부르면 실제 내 위치가 아니라 시청 날씨가
+     됩니다. 이름만 빌리고 좌표는 내 것을 지킵니다. */
+  const place = toPlace(data[0])
+  return { ...place, id: toGeoId(lat, lon), lat, lon }
+}
