@@ -35,7 +35,7 @@ SKALA Full-Stack Engineering — Frontend framework (Vue.js) 과정의 실습 �
 | 항목 | 링크 |
 |:---|:---|
 | 저장소 | https://github.com/dolmaroyujinpark/skala-vue |
-| 배포 | _(Vercel 배포 주소)_ |
+| 배포 | https://skala-vue-five.vercel.app |
 
 ### 최종 체크리스트
 
@@ -131,9 +131,18 @@ VITE_OWM_API_KEY=발급받은_키
 
 ## V. 화면 (Screenshots) 📸
 
-| 대시보드 `/` | 도시 상세 `/weather/:cityId` |
-|:---:|:---:|
-| <img src="docs/screenshots/home.png" width="380"> | <img src="docs/screenshots/detail.png" width="380"> |
+### 모바일
+
+<img src="docs/screenshots/mobile.png" width="760">
+
+왼쪽 위부터 — 위치 권한 요청 · 현재 위치(판교)로 시작한 대시보드 · 시간별 / 일별 예보,
+아래 — 지역 검색(`오사카`) · 담은 뒤의 카드 목록 · 라이트 테마.
+
+### 데스크탑
+
+<img src="docs/screenshots/desktop.png" width="760">
+
+같은 화면의 다크 / 라이트 테마입니다. OS 설정을 따라갑니다.
 
 <br><br>
 
