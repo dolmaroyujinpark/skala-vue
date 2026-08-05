@@ -141,7 +141,7 @@ const routerNotes = [
     <BaseDashboardCard tag="section">
       <template #header>
         <header>
-          <h2 class="wx-about-title">Dora's Weather</h2>
+          <h2 class="wx-about-title">My Weather</h2>
           <p class="wx-label">About this service</p>
         </header>
       </template>
