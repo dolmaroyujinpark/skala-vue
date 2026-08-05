@@ -68,7 +68,7 @@ const LINE_PAUSE_MS = 350
 
 /* ⚠️ 문구를 고칠 때는 이 배열만 고치면 됩니다.
    줄 수가 늘면 스플래시도 그만큼 길어집니다(아래 splashDuration 이 계산). */
-const SPLASH_LINES = ['지금 여기의 하늘', '오늘 뭐 입지, 뭐 듣지']
+const SPLASH_LINES = ['내 위치에 딱 맞게', '오늘 뭐 입고 뭐 듣지']
 
 // 화면에 실제로 찍히는 글자들. 처음에는 빈 줄로 시작합니다.
 const typedLines = ref(SPLASH_LINES.map(() => ''))

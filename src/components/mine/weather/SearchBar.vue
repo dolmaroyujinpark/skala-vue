@@ -30,9 +30,13 @@ defineProps({
     type: String,
     default: 'Search City',
   },
+  /* ⚠️ 한때 '한글로 입력해 보세요' 였습니다. 한글 색인이 들쭉날쭉한
+        문제를 보정표(data/placeAliases.js)로 우회하면서 한글·영문이
+        모두 되게 만들었는데, 문구만 한글을 시키고 있어 고쳤습니다.
+        오히려 영문 쪽이 더 잘 찾힙니다. */
   placeholder: {
     type: String,
-    default: '한글로 입력해 보세요 (예: 서울)',
+    default: '지역을 검색해 보세요',
   },
 })
 
