@@ -2,13 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/configStore'
-import { fetchCityWeather, CITY_QUERY } from '@/api/weather'
+import { fetchCityWeather, isKnownCity } from '@/api/weather'
 
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
 import WeatherHero from '@/components/mine/weather/WeatherHero.vue'
 import ForecastStrip from '@/components/mine/weather/ForecastStrip.vue'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
-import { findCityById } from '@/data/cities'
+import { useCityStore } from '@/stores/cityStore'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] WeatherDetailView.vue — /weather/:cityId (요구사항 4)
@@ -38,6 +38,11 @@ const router = useRouter()
    목록에서 ℉ 로 보다가 들어와도 여기서 ℃ 로 되돌아가지 않습니다.
    화면이 바뀌어도 store 는 그대로 살아 있기 때문입니다. */
 const configStore = useConfigStore()
+
+/* [추가] 도시 명부. 기본 20곳뿐 아니라 검색으로 담은 도시도 여기 있습니다.
+   전에는 data/cities.js 를 직접 봤는데, 그 파일은 고정 20곳이라
+   담은 도시로 들어오면 "없는 도시" 가 됐습니다. */
+const cityStore = useCityStore()
 
 /* ────────────────────────────────────────────────
    [요구사항 4] Mount 시점에 도시 객체 선택
@@ -82,7 +87,7 @@ onMounted(async () => {
   // 둘 중 하나만 고치면 조용히 undefined 가 되므로 항상 같이 봐야 합니다.
   const id = route.params.cityId
 
-  if (!CITY_QUERY[id]) {
+  if (!isKnownCity(id)) {
     console.warn(`🔍 [detail] '${id}' 는 등록되지 않은 도시 코드입니다.`)
     return
   }
@@ -95,7 +100,7 @@ onMounted(async () => {
   } catch (error) {
     // 통신이 실패해도 화면은 보여 줍니다. Mock 이 최신은 아니지만
     // "아무것도 없음" 보다는 낫습니다. 대신 그 사실을 화면에 밝힙니다.
-    cityData.value = findCityById(id) ?? null
+    cityData.value = cityStore.findById(id) ?? null
     hasError.value = true
     console.error(`🔴 [API] ${id} 상세 조회 실패 — Mock 으로 대체합니다.`, error)
   } finally {
