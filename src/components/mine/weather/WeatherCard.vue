@@ -77,16 +77,25 @@ const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
     <!-- [2일차 추가] 즐겨찾기 토글.
          v-bind 로 두 가지를 동시에 바꿉니다 —
            :class  → 켜지면 별이 항상 보이고 색이 본문색으로 올라갑니다
-           :filled → 별 속이 채워집니다 (색만으로 구분하면 색약 사용자가 못 읽습니다) -->
-    <button
-      class="wx-icon-btn wx-card-fav"
-      :class="{ 'is-on': isFavorite }"
-      :aria-pressed="isFavorite"
-      :aria-label="isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'"
-      @click.stop="emit('toggle-favorite', cityItem)"
-    >
-      <MonoIcon name="star" :size="14" :filled="isFavorite" />
-    </button>
+           :filled → 별 속이 채워집니다 (색만으로 구분하면 색약 사용자가 못 읽습니다)
+
+         [8일차 과제] Element Plus 적용 — el-tooltip.
+         별은 켜짐/꺼짐만 보여 줄 뿐, "다시 담으면 맨 앞으로 온다" 는 규칙은
+         화면 어디에도 안 보입니다. 카드에 설명을 글자로 적으면 20장이
+         전부 시끄러워지므로, 필요할 때만 뜨는 말풍선으로 알립니다.
+         :teleported="false" — 말풍선이 <body> 로 순간이동하면 .wx 밖이라
+         테마 색이 닿지 않습니다. (assets/element-theme.css 주석 참고) -->
+    <el-tooltip :content="isFavorite ? '즐겨찾기 해제' : '즐겨찾기 — 목록 맨 앞으로'" placement="top" :teleported="false" :show-after="400">
+      <button
+        class="wx-icon-btn wx-card-fav"
+        :class="{ 'is-on': isFavorite }"
+        :aria-pressed="isFavorite"
+        :aria-label="isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'"
+        @click.stop="emit('toggle-favorite', cityItem)"
+      >
+        <MonoIcon name="star" :size="14" :filled="isFavorite" />
+      </button>
+    </el-tooltip>
 
     <PixelIcon :name="cityItem.icon" :size="44" />
 

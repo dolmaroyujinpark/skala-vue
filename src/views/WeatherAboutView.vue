@@ -70,6 +70,11 @@ const requiredWork = [
   { id: 'reactive', label: 'Reactivity', text: '검색 · 정렬 결과는 computed 로 파생시키고, 상태 변화는 watch · watchEffect 로 감시합니다.' },
   { id: 'router', label: 'Router', text: '대시보드 · 소개 · 도시 상세 · 404 네 화면. 상세는 /weather/:cityId 동적 경로입니다.' },
   { id: 'axios', label: 'Axios', text: 'OpenWeatherMap 을 axios 로 호출합니다. 통신 코드는 api/weather.js 한 곳에만 있습니다.' },
+  {
+    id: 'element',
+    label: 'Element Plus',
+    text: '정렬 드롭다운(el-select)과 두 곳의 설명 말풍선(el-tooltip)에 썼습니다. 라이브러리의 색·굴림·그림자를 CSS 변수로 앱 토큰에 연결해, 라이브러리를 이기지 않고 톤만 맞췄습니다.',
+  },
   { id: 'store', label: 'Pinia', text: '℃ / ℉ 단위 · 즐겨찾기 · 음악 재생을 전역 상태로 뒀습니다. state · getters · actions 세 칸을 나눠 적었습니다. 아래 State 패널에 무엇을 왜 store 에 뒀는지 적어 두었습니다.' },
 ]
 

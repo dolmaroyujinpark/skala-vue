@@ -154,6 +154,21 @@ const searchQuery = ref('')
 // [2일차 컴포넌트 요구사항 4] WeatherCard 의 select-card 이벤트가 이 값을 바꿉니다.
 const selectedCityInfo = ref('Select a city card to begin.')
 
+/* [추가] 좁은 화면에서 카드 목록을 접을지.
+
+   넓은 화면은 카드 영역이 자체 스크롤(2줄)이라 아무리 도시가 많아도
+   화면을 밀어내지 않습니다. 그런데 860px 이하에서는 그 스크롤을 풀어
+   둡니다 — 페이지 안에 또 스크롤이 있으면 손가락이 어느 쪽을 미는지
+   모호해지기 때문입니다. 대신 20장이 통째로 세로로 쌓여서, 예보를 보려면
+   한참을 내려야 했습니다.
+
+   그래서 처음에는 여섯 장만 보여 주고 나머지는 버튼으로 펼칩니다.
+   즐겨찾기가 맨 앞에 오므로 자주 보는 도시는 접힌 채로도 보입니다.
+   ⚠️ 이 값은 좁은 화면에서만 의미가 있습니다. 넓은 화면에서는 아래
+      CSS 가 이 클래스를 무시합니다 — 화면 폭을 JS 로 재지 않는 이유는
+      그래야 창 크기를 바꿔도 저절로 맞기 때문입니다. */
+const showAllCards = ref(false)
+
 // [2일차 직접 추가] 반응형 변수 — 옷차림 추천 패널을 켤지 끌지
 // 이 값 하나로 화면에서 패널이 사라졌다 나타났다 합니다.
 // 템플릿에서는 v-if 가 아니라 v-show 로 묶었습니다. 사용자가 버튼을 누를 때마다
@@ -696,16 +711,26 @@ const toggleFavorite = (city) => {
           <span v-if="favoriteCount" class="wx-count-fav">· 즐겨찾기 {{ favoriteCount }}</span>
         </p>
 
-        <label class="wx-sort">
-          <span class="wx-sort-label">Sort</span>
-          <select v-model="sortBy" class="wx-sort-select">
-            <option value="name">이름순</option>
-            <option value="temp">기온 높은순</option>
-          </select>
-        </label>
+        <!-- [8일차 과제] Element Plus 적용 — 정렬 드롭다운.
+
+             브라우저 기본 <select> 는 목록이 열리는 순간 OS 위젯이 뜹니다.
+             appearance:none 으로 닫힌 모습은 맞출 수 있어도 열린 목록은
+             손댈 수 없어서, 다크 모드에서 여기만 흰 시스템 패널이 튀었습니다.
+             el-select 는 목록까지 DOM 이라 앱 토큰으로 칠할 수 있습니다.
+
+             :teleported="false" — 기본값이면 목록이 <body> 끝으로 순간이동해
+             .wx 밖에 그려집니다. 그러면 테마 변수(--fg · --bg)가 닿지 않아
+             다크 모드에서 흰 패널이 됩니다. 제자리에 그리게 막아 둡니다. -->
+        <div class="wx-sort">
+          <span id="wx-sort-label" class="wx-sort-label">Sort</span>
+          <el-select v-model="sortBy" class="wx-sort-select" :teleported="false" size="small" aria-labelledby="wx-sort-label">
+            <el-option label="이름순" value="name" />
+            <el-option label="기온 높은순" value="temp" />
+          </el-select>
+        </div>
       </div>
 
-      <div ref="cardsBox" class="wx-cards">
+      <div ref="cardsBox" class="wx-cards" :class="{ 'is-collapsed': !showAllCards }">
         <!-- [3일차 변경] @click-detail 이 이제 도시 객체를 통째로 받습니다.
              2일차에는 (이름, 상태) 두 개를 받아 alert 문장을 만들었지만,
              라우터로 보내려면 필요한 건 id 입니다. 다른 이벤트들(select-card ·
@@ -723,6 +748,16 @@ const toggleFavorite = (city) => {
           @toggle-favorite="toggleFavorite"
         />
       </div>
+
+      <!-- [추가] 좁은 화면 전용 펼치기 버튼.
+           v-if 가 아니라 CSS 로 감추는 이유 — 화면 폭은 CSS 가 이미 알고
+           있습니다. JS 로 matchMedia 를 또 재면 창 크기를 바꿀 때마다
+           둘을 맞춰 줘야 하고, 어긋나면 버튼만 남거나 카드만 접힙니다.
+           히어로의 Outfit 버튼과 같은 캡션 말투를 씁니다. -->
+      <button class="wx-cards-more" :class="{ 'is-on': showAllCards }" :aria-expanded="showAllCards" @click="showAllCards = !showAllCards">
+        {{ showAllCards ? '접기' : `도시 ${filteredCount}개 전체 보기` }}
+        <span class="wx-cards-more-caret" aria-hidden="true"></span>
+      </button>
 
       <!-- [2일차 요구사항 4-c] 일치하는 데이터가 없으면 없다고 안내합니다 -->
       <p v-if="displayWeatherList.length === 0" class="wx-empty">“{{ searchQuery }}” 와(과) 일치하는 도시가 없습니다.</p>
@@ -867,34 +902,80 @@ const toggleFavorite = (city) => {
   text-transform: uppercase;
 }
 
-/* 브라우저 기본 select 는 OS 위젯이라 이 목업의 톤과 전혀 안 맞습니다.
-   appearance:none 으로 벗겨내고 테두리만 남긴 뒤, 화살표는 배경 이미지 대신
-   유니코드 ⌄ 를 그대로 씁니다 (외부 파일 없이 오프라인 동작). */
+/* [8일차 과제] 정렬 드롭다운이 <select> 에서 el-select 로 바뀌었습니다.
+
+   전에는 appearance:none 으로 기본 위젯을 벗기고 화살표까지 그라디언트로
+   직접 그렸습니다. 닫힌 모습은 그렇게 맞출 수 있었지만, 목록이 열리는
+   순간 나타나는 OS 패널은 CSS 로 손댈 수 없습니다 — 다크 모드에서 거기만
+   흰 상자가 떴습니다.
+
+   el-select 는 열린 목록도 DOM 이라 색을 우리가 정합니다. 그래서 이 파일에
+   남은 것은 "닫혀 있을 때의 알약 테두리" 뿐이고, 열린 목록의 톤은
+   assets/element-theme.css 가 한 곳에서 맡습니다.
+
+   :deep() 이 필요한 이유 — .el-select__wrapper 는 라이브러리가 만든
+   엘리먼트라 이 파일의 scope id 가 찍히지 않습니다. scoped 스타일은
+   기본적으로 자기 scope id 가 붙은 것에만 닿습니다. */
 .wx-sort-select {
-  padding: 6px 26px 6px 12px;
-  color: var(--fg);
-  font: inherit;
-  font-size: 13px;
-  background: var(--bg);
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position:
-    right 13px top 51%,
-    right 9px top 51%;
-  background-size:
-    4px 4px,
-    4px 4px;
-  background-repeat: no-repeat;
-  border: 1px solid var(--line-hi);
-  border-radius: 999px;
-  cursor: pointer;
-  appearance: none;
-  transition: border-color 0.2s;
+  width: 138px;
 }
 
-.wx-sort-select:hover,
-.wx-sort-select:focus-visible {
-  border-color: var(--fg);
-  outline: none;
+.wx-sort-select :deep(.el-select__wrapper) {
+  min-height: 0;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 13px;
+  /* 이 앱의 컨트롤은 알약(999px)입니다. element-theme.css 에서 굴림을 0 으로
+     내려 뒀으므로, 알약이어야 하는 곳만 여기서 되돌립니다. */
+  border-radius: 999px;
+  transition: box-shadow 0.2s;
+}
+
+/* [추가] 카드 더 보기 / 접기 — 좁은 화면 전용.
+
+   넓은 화면에서는 카드 영역이 이미 2줄 스크롤이라 이 버튼이 필요 없습니다.
+   기본을 display:none 으로 두고, 위 @media (max-width: 860px) 안에서만
+   켭니다. 화면 폭 판단을 CSS 한 곳에만 두기 위해서입니다.
+
+   모양은 히어로의 Outfit 버튼과 같은 규칙 — 테두리도 배경도 없이
+   색(--dim → --fg)과 셰브론 방향으로만 상태를 알립니다. */
+.wx-cards-more {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 2px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.wx-cards-more:hover,
+.wx-cards-more.is-on {
+  color: var(--fg);
+}
+
+/* 셰브론 — 히어로 Outfit 버튼의 것과 같은 도형(테두리 두 변을 45° 회전).
+   펼쳐지면 -135° 로 뒤집혀 위를 가리킵니다. */
+.wx-cards-more-caret {
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -2px);
+  transition: transform 0.25s;
+}
+
+.wx-cards-more.is-on .wx-cards-more-caret {
+  transform: rotate(-135deg) translate(-2px, -1px);
 }
 
 /* 도시가 20개가 되면서 카드가 5줄까지 늘었습니다. 그대로 두면 오른쪽 열만
@@ -1099,6 +1180,23 @@ const toggleFavorite = (city) => {
     max-height: none;
     padding-right: 0;
     overflow-y: visible;
+  }
+
+  /* [추가] 접힌 상태에서는 앞의 여섯 장만 남깁니다.
+
+     v-if 로 배열을 잘라도 되지만 그러면 펼칠 때마다 카드 14개가 새로
+     만들어집니다(mount). display:none 은 이미 만들어 둔 것을 감추기만
+     하므로 펼침이 즉시 끝납니다. 히어로의 옷차림 블록을 v-show 로 둔
+     것과 같은 판단입니다.
+
+     :nth-child(n+7) 은 "일곱 번째부터 끝까지" 라는 뜻입니다. */
+  .wx-cards.is-collapsed > *:nth-child(n + 7) {
+    display: none;
+  }
+
+  /* 버튼은 좁은 화면에서만 나타납니다 (기본은 아래에서 display:none) */
+  .wx-cards-more {
+    display: inline-flex;
   }
 }
 

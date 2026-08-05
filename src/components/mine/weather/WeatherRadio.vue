@@ -74,8 +74,13 @@ watch(
         <i></i><i></i><i></i>
       </span>
       <span class="wx-radio-mood">{{ radio.playlist.caption }}</span>
-      <!-- title 속성 — 줄임표로 잘렸을 때 마우스를 올리면 전체가 보입니다 -->
-      <span class="wx-radio-title" :title="radio.track.title">{{ radio.track.title }}</span>
+      <!-- [8일차 과제] Element Plus 적용 — el-tooltip.
+           제목이 길면 줄임표로 잘립니다. 전에는 title 속성을 썼는데, 그건
+           브라우저가 그리는 OS 툴팁이라 이 앱의 톤과 무관하게 뜹니다.
+           el-tooltip 은 색도 테두리도 앱 토큰을 따릅니다. -->
+      <el-tooltip :content="radio.track.title" placement="top" :teleported="false" :show-after="400">
+        <span class="wx-radio-title">{{ radio.track.title }}</span>
+      </el-tooltip>
     </p>
   </div>
 </template>
