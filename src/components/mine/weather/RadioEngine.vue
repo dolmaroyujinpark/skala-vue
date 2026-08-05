@@ -81,9 +81,19 @@ const createPlayer = () => {
 
   creating = loadYouTubeApi().then((YT) => {
     player = new YT.Player(host.value, {
-      /* 쿠키 없는 도메인. 재생 기록이 사용자 계정에 남지 않습니다.
-         (iframe_api 스크립트 자체는 www 에서 받아야 합니다) */
-      host: 'https://www.youtube-nocookie.com',
+      /* ⚠️ host: 'https://www.youtube-nocookie.com' 을 줬다가 뺐습니다.
+
+         쿠키 없는 도메인이라 재생 기록이 계정에 안 남는 장점이 있는데,
+         iframe_api 스크립트는 www.youtube.com 에서만 받을 수 있습니다.
+         그래서 위젯이 플레이어에 메시지를 보낼 때 대상 주소가 어긋나
+         콘솔에 이 에러가 계속 찍혔습니다.
+
+           Failed to execute 'postMessage' on 'DOMWindow':
+           The target origin ('https://www.youtube-nocookie.com')
+           does not match the recipient window's origin
+
+         재생이 아예 안 되는 것은 아니지만 조작이 간헐적으로 먹지 않습니다.
+         스크립트와 플레이어를 같은 도메인으로 맞추는 것이 먼저입니다. */
       videoId: radio.track.id,
       playerVars: {
         autoplay: 1,

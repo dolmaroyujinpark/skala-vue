@@ -144,11 +144,17 @@ const configStore = useConfigStore()
   padding: 34px 24px 28px;
 }
 
+/* 히어로의 도시 이름도 카드와 같은 줄바꿈 규칙을 씁니다 —
+   검색으로 담은 지역은 이름 길이를 우리가 정할 수 없습니다.
+   (자세한 배경은 WeatherCard 의 .wx-card-city 주석 참고) */
 .wx-hero-city {
   margin: 0;
   font-size: 30px;
   font-weight: 400;
+  line-height: 1.25;
   letter-spacing: 0.02em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .wx-hero-head .wx-label {

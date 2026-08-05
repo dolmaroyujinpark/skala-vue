@@ -36,6 +36,86 @@ import { useRadioStore } from '@/stores/radioStore'
    .wx 바깥이라 테마 CSS 변수(--fg / --bg)도 못 받습니다.
    ════════════════════════════════════════════════════════════ */
 
+/* ────────────────────────────────────────────────
+   [추가] 스플래시 소개 문구 — 첫 방문에만 한 글자씩
+
+   ── 왜 타이핑인가 ────────────────────────────────────────
+   스플래시는 원래 폰트를 기다리는 빈 시간입니다. 그 시간에 이 앱이
+   무엇을 하는지 한 줄 읽고 지나가게 했습니다.
+
+   문장을 통째로 띄우면 눈이 훑고 지나가지만, 한 글자씩 찍히면 읽는
+   속도가 글자 속도에 묶여서 끝까지 읽게 됩니다. 챗봇이나 터미널이
+   쓰는 방식입니다.
+
+   ── 첫 방문에만 하는 이유 ────────────────────────────────
+   두 번째부터는 아는 내용을 3초 동안 기다리는 셈입니다. 방문한 적이
+   있으면 문구를 통째로 띄우고 스플래시도 짧게 끝냅니다.
+   ──────────────────────────────────────────────── */
+const VISIT_KEY = 'wx-visited'
+const isFirstVisit = !localStorage.getItem(VISIT_KEY)
+
+/* 한 글자에 이만큼. 한글은 한 글자에 담긴 정보가 많아 라틴 알파벳보다
+   느리게 찍어야 읽힙니다. 45ms 면 한 줄(20자)에 1초 정도입니다. */
+const TYPE_SPEED_MS = 45
+
+// 줄 사이 쉼. 이게 없으면 두 줄이 한 문장처럼 붙어 읽힙니다.
+const LINE_PAUSE_MS = 350
+
+/* ⚠️ 문구를 고칠 때는 이 배열만 고치면 됩니다.
+   줄 수가 늘면 스플래시도 그만큼 길어집니다(아래 splashDuration 이 계산). */
+const SPLASH_LINES = ['지금 있는 곳의 하늘을 봅니다', '무엇을 입을지, 무엇을 들을지까지']
+
+// 화면에 실제로 찍히는 글자들. 처음에는 빈 줄로 시작합니다.
+const typedLines = ref(SPLASH_LINES.map(() => ''))
+
+// 커서를 어느 줄에 둘지. 다 찍으면 -1 이 되어 커서가 사라집니다.
+const typingLine = ref(isFirstVisit ? 0 : -1)
+
+/* 동작을 줄여 달라고 설정한 사용자에게는 타이핑을 하지 않습니다.
+   (OS 의 '동작 줄이기' — 어지럼증·전정기관 문제가 있는 분들이 켭니다) */
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const showAllAtOnce = () => {
+  typedLines.value = [...SPLASH_LINES]
+  typingLine.value = -1
+}
+
+/* 한 글자씩 찍습니다. setInterval 대신 setTimeout 을 이어 붙이는 이유 —
+   줄이 끝날 때마다 쉬어야 하는데, interval 은 그 쉼을 표현하기 어렵습니다. */
+const typeLine = (lineIndex) =>
+  new Promise((resolve) => {
+    if (lineIndex >= SPLASH_LINES.length) return resolve()
+
+    const full = SPLASH_LINES[lineIndex]
+    typingLine.value = lineIndex
+    let charIndex = 0
+
+    const tick = () => {
+      charIndex += 1
+      typedLines.value[lineIndex] = full.slice(0, charIndex)
+
+      if (charIndex >= full.length) return setTimeout(resolve, LINE_PAUSE_MS)
+      setTimeout(tick, TYPE_SPEED_MS)
+    }
+
+    tick()
+  })
+
+const runTyping = async () => {
+  for (let i = 0; i < SPLASH_LINES.length; i += 1) await typeLine(i)
+  typingLine.value = -1
+}
+
+/* 스플래시를 얼마나 띄울지. 타이핑이 끝나기 전에 걷어 버리면
+   읽을 것을 띄워 놓고 뺏는 셈이라, 글자 수로 필요한 시간을 계산합니다. */
+const splashDuration = () => {
+  if (!isFirstVisit || prefersReducedMotion) return 1600
+
+  const chars = SPLASH_LINES.reduce((sum, line) => sum + line.length, 0)
+  // 마지막 줄을 다 읽을 여유로 600ms 를 더합니다.
+  return chars * TYPE_SPEED_MS + SPLASH_LINES.length * LINE_PAUSE_MS + 600
+}
+
 /* [추가] 설정줄의 음악 스위치가 쓰는 store.
    여기서 값을 만들지 않고 집어만 옵니다 — 재생 상태의 주인은 radioStore 고,
    이 파일은 끄고 켜는 자리를 하나 더 열어 줄 뿐입니다. */
@@ -49,9 +129,8 @@ const fontsReady = ref(false) // 웹폰트 준비 여부
 
 /* 스플래시를 최소한 이만큼은 보여 줍니다. 폰트가 즉시 준비돼도 화면이
    번쩍 지나가 버리지 않게 하는 하한선입니다.
-   [변경] 제목 아래에 한 줄 설명이 생기면서 1.2초 → 1.6초.
-   읽을 것을 띄워 놓고 읽기 전에 걷어 버리면 없느니만 못합니다. */
-const SPLASH_MIN_MS = 1600
+   [변경] 고정값이 아니라 위 splashDuration() 이 계산합니다 —
+   첫 방문은 타이핑이 끝날 때까지, 재방문은 1.6초. */
 
 /* 폰트가 아무리 늦어도 여기서 끊고 진행합니다. 네트워크가 느리다고
    대시보드를 못 보는 일이 없어야 합니다. */
@@ -124,8 +203,16 @@ onMounted(() => {
   Promise.race([document.fonts?.ready ?? Promise.resolve(), new Promise((resolve) => setTimeout(resolve, FONT_WAIT_MAX_MS))]).then(() => {
     fontsReady.value = true
 
+    /* 폰트가 준비된 뒤에 타이핑을 시작합니다. 먼저 시작하면 글자 폭이
+       바뀌는 순간(FOUT) 이미 찍힌 글자들이 우르르 밀립니다. */
+    if (isFirstVisit && !prefersReducedMotion) runTyping()
+    else showAllAtOnce()
+
+    // 다음 방문부터는 짧은 스플래시로 넘어갑니다.
+    localStorage.setItem(VISIT_KEY, '1')
+
     // 이미 흘려보낸 시간을 빼서, 스플래시가 통째로 1.2초 이상 유지되게 합니다.
-    const remaining = Math.max(0, SPLASH_MIN_MS - (Date.now() - startedAt))
+    const remaining = Math.max(0, splashDuration() - (Date.now() - startedAt))
 
     setTimeout(() => {
       isBooting.value = false
@@ -159,10 +246,17 @@ onBeforeUnmount(() => {
            읽습니다. "무엇을 보여 주는 앱인가" 만 한 줄로 적고, 자세한
            이야기는 /about 이 맡습니다. -->
       <div class="wx-splash-head">
-        <h1 class="wx-splash-title">Weather</h1>
-        <p class="wx-splash-lead">전국 20개 지역의 실시간 날씨<br />오늘의 옷차림과 플레이리스트까지</p>
+        <h1 class="wx-splash-title">My Weather</h1>
+
+        <!-- 한 글자씩 찍히는 소개. 줄마다 자리를 미리 잡아 두어야
+             글자가 늘어날 때 아래 내용이 밀리지 않습니다(min-height). -->
+        <p class="wx-splash-lead">
+          <span v-for="(line, index) in typedLines" :key="index" class="wx-splash-line">
+            {{ line }}<span v-if="typingLine === index" class="wx-splash-caret" aria-hidden="true"></span>
+          </span>
+        </p>
       </div>
-      <p class="wx-splash-sub">Dora's weather dashboard</p>
+      <p class="wx-splash-sub">made by Dora</p>
     </div>
 
     <!-- ══════════ APP SHELL ══════════ -->
@@ -173,7 +267,7 @@ onBeforeUnmount(() => {
              로고를 누르면 첫 화면으로 — 웹에서 사용자가 기대하는 동작입니다. -->
         <RouterLink to="/" class="wx-brand">
           <PixelIcon name="sun" :size="22" />
-          Weather
+          My Weather
         </RouterLink>
 
         <!-- [요구사항 2] Navigation Bar —
@@ -334,11 +428,43 @@ onBeforeUnmount(() => {
 /* 한글 두 줄. 제목(clamp 32~64px)과 부제(12~14px) 사이 크기라
    셋이 나란히 놓여도 위계가 흐트러지지 않습니다. */
 .wx-splash-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 18px 0 0;
   color: var(--dim);
   font-size: clamp(13px, 1.4vw, 16px);
   line-height: 1.8;
   letter-spacing: 0.02em;
+}
+
+/* 글자가 하나씩 늘어나도 줄 높이가 유지되도록 자리를 미리 잡습니다.
+   안 그러면 첫 글자가 찍히는 순간 제목이 위로 튑니다. */
+.wx-splash-line {
+  min-height: 1.8em;
+}
+
+/* 타이핑 커서 — 지금 찍고 있는 줄에만 붙습니다.
+   테두리 한 변으로 그립니다. 새 도형을 만들지 않으려고
+   히어로의 셰브론과 같은 방식을 씁니다. */
+.wx-splash-caret {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  border-left: 1px solid currentColor;
+  animation: wx-caret 1s step-end infinite;
+}
+
+@keyframes wx-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .wx-splash-sub {
