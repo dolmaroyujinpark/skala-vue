@@ -67,7 +67,7 @@ const configStore = useConfigStore()
    select-card 에 문구가 아닌 도시 객체를 실어 올리는 이유:
    문장을 자식이 만들면 부모가 선택된 id 를 알 방법이 없어집니다.
    ──────────────────────────────────────────────── */
-const emit = defineEmits(['select-card', 'click-detail', 'remove-card', 'toggle-favorite'])
+const emit = defineEmits(['select-card', 'click-detail', 'toggle-favorite'])
 </script>
 
 <template>
@@ -86,11 +86,6 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card', 'toggle-
       @click.stop="emit('toggle-favorite', cityItem)"
     >
       <MonoIcon name="star" :size="14" :filled="isFavorite" />
-    </button>
-
-    <!-- :key 를 index 가 아닌 id 로 잡아야 하는 이유를 눈으로 확인하려고 넣은 삭제 버튼 -->
-    <button class="wx-icon-btn wx-card-remove" aria-label="Remove" @click.stop="emit('remove-card', cityItem)">
-      <MonoIcon name="close" :size="13" />
     </button>
 
     <PixelIcon :name="cityItem.icon" :size="44" />
@@ -213,22 +208,10 @@ const emit = defineEmits(['select-card', 'click-detail', 'remove-card', 'toggle-
   border-color: var(--fg);
 }
 
-/* 삭제 버튼은 평소엔 숨어 있다가 카드에 마우스를 올리면 나타납니다.
-   키보드 사용자를 위해 포커스 링이 잡혔을 때도 똑같이 드러냅니다. */
-.wx-card-remove {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.wx-card:hover .wx-card-remove,
-.wx-card-remove:focus-visible {
-  opacity: 1;
-}
-
-/* [2일차 추가] 즐겨찾기 별. 삭제 버튼과 반대쪽 모서리에 둡니다.
+/* [2일차 추가] 즐겨찾기 별. 카드 왼쪽 위 모서리.
+   한때 오른쪽 위에 삭제(✕)와 대표 도시 핀이 차례로 있었지만 둘 다
+   걷어냈습니다 — 별 하나가 '자주 봄' 과 '순서' 를 함께 표현하므로
+   모서리에 아이콘이 둘 있을 이유가 없습니다.
    평소엔 숨어 있다가 마우스를 올리면 나타나는데, 이미 즐겨찾기한 카드는
    is-on 규칙이 opacity 를 1 로 고정해 항상 보입니다.
    그래야 목록을 훑을 때 "어느 게 즐겨찾기인지"를 hover 없이 알 수 있습니다. */
