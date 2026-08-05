@@ -8,7 +8,8 @@ import { useRadioStore } from '@/stores/radioStore'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] App.vue — 앱 셸 (요구사항 2)
-   2일차 원본: App.vue.assign (WeatherParent 하나만 렌더링하던 시절)
+   2일차에는 이 파일이 WeatherParent 하나만 렌더링했습니다.
+   (그 시절 원본 파일들은 제출 전 정리했고, git 이력에만 남아 있습니다)
 
    ── 무엇이 여기로 올라왔나 ────────────────────────────────
    2일차의 WeatherParent.vue 는 "앱 껍데기"와 "대시보드 화면"이 한 덩어리였습니다.
@@ -51,7 +52,11 @@ import { useRadioStore } from '@/stores/radioStore'
    두 번째부터는 아는 내용을 3초 동안 기다리는 셈입니다. 방문한 적이
    있으면 문구를 통째로 띄우고 스플래시도 짧게 끝냅니다.
    ──────────────────────────────────────────────── */
-const VISIT_KEY = 'wx-visited'
+/* ⚠️ 키 끝에 버전을 붙인 이유 — 이 값은 브라우저에 남아서, 한 번 방문한
+      사람은 문구를 고쳐도 두 번 다시 못 봅니다. 문구를 새로 쓰면 키도
+      올려서 "모두에게 한 번 더" 보여 줍니다. 이미 다녀간 사람에게도
+      바뀐 첫인상을 보여 주려는 것입니다. */
+const VISIT_KEY = 'wx-visited-v2'
 const isFirstVisit = !localStorage.getItem(VISIT_KEY)
 
 /* 한 글자에 이만큼. 한글은 한 글자에 담긴 정보가 많아 라틴 알파벳보다
@@ -63,7 +68,7 @@ const LINE_PAUSE_MS = 350
 
 /* ⚠️ 문구를 고칠 때는 이 배열만 고치면 됩니다.
    줄 수가 늘면 스플래시도 그만큼 길어집니다(아래 splashDuration 이 계산). */
-const SPLASH_LINES = ['지금 있는 곳의 하늘을 봅니다', '무엇을 입을지, 무엇을 들을지까지']
+const SPLASH_LINES = ['지금 여기의 하늘', '오늘 뭐 입지, 뭐 듣지']
 
 // 화면에 실제로 찍히는 글자들. 처음에는 빈 줄로 시작합니다.
 const typedLines = ref(SPLASH_LINES.map(() => ''))
@@ -106,14 +111,22 @@ const runTyping = async () => {
   typingLine.value = -1
 }
 
+/* 다 찍은 뒤 문구를 읽을 시간.
+
+   ⚠️ 이 값이 필요한 이유 — 아래 계산은 "타이핑에 걸리는 시간" 이라
+      마지막 글자가 찍히는 순간 0 이 됩니다. 그대로 걷으면 다 쓰자마자
+      사라져서 읽을 틈이 없습니다. 문구를 짧게 고칠수록 더 심해집니다
+      (짧아진 만큼 타이핑도 빨리 끝나므로).
+      그래서 글자 수와 무관한 고정 여유를 따로 둡니다. */
+const READ_PAUSE_MS = 1400
+
 /* 스플래시를 얼마나 띄울지. 타이핑이 끝나기 전에 걷어 버리면
    읽을 것을 띄워 놓고 뺏는 셈이라, 글자 수로 필요한 시간을 계산합니다. */
 const splashDuration = () => {
   if (!isFirstVisit || prefersReducedMotion) return 1600
 
   const chars = SPLASH_LINES.reduce((sum, line) => sum + line.length, 0)
-  // 마지막 줄을 다 읽을 여유로 600ms 를 더합니다.
-  return chars * TYPE_SPEED_MS + SPLASH_LINES.length * LINE_PAUSE_MS + 600
+  return chars * TYPE_SPEED_MS + SPLASH_LINES.length * LINE_PAUSE_MS + READ_PAUSE_MS
 }
 
 /* [추가] 설정줄의 음악 스위치가 쓰는 store.
@@ -199,7 +212,7 @@ onMounted(() => {
   /* document.fonts.ready 는 이 화면에 필요한 웹폰트 로딩이 전부 끝나면
      resolve 되는 Promise 입니다. Promise.race 로 상한선을 함께 걸어,
      둘 중 먼저 끝나는 쪽으로 진행합니다.
-     (자세한 배경은 2일차 원본 WeatherParent.vue.day2 주석 참고) */
+     폰트가 늦으면 글자가 한 번 튀어서(FOUT), 스플래시로 그 시간을 덮습니다. */
   Promise.race([document.fonts?.ready ?? Promise.resolve(), new Promise((resolve) => setTimeout(resolve, FONT_WAIT_MAX_MS))]).then(() => {
     fontsReady.value = true
 
