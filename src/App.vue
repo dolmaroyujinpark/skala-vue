@@ -4,6 +4,7 @@ import { RouterLink, RouterView } from 'vue-router'
 import PixelIcon from '@/components/mine/icons/PixelIcon.vue'
 import UnitToggler from '@/components/mine/weather/UnitToggler.vue'
 import RadioEngine from '@/components/mine/weather/RadioEngine.vue'
+import { useRadioStore } from '@/stores/radioStore'
 
 /* ════════════════════════════════════════════════════════════
    [3일차 과제] App.vue — 앱 셸 (요구사항 2)
@@ -34,6 +35,11 @@ import RadioEngine from '@/components/mine/weather/RadioEngine.vue'
    100vh 짜리 스플래시 위에 내비가 얹혀 첫 화면부터 스크롤이 생기고,
    .wx 바깥이라 테마 CSS 변수(--fg / --bg)도 못 받습니다.
    ════════════════════════════════════════════════════════════ */
+
+/* [추가] 설정줄의 음악 스위치가 쓰는 store.
+   여기서 값을 만들지 않고 집어만 옵니다 — 재생 상태의 주인은 radioStore 고,
+   이 파일은 끄고 켜는 자리를 하나 더 열어 줄 뿐입니다. */
+const radio = useRadioStore()
 
 /* ────────────────────────────────────────────────
    스플래시 — 앱을 켤 때 한 번
@@ -79,9 +85,25 @@ const onSystemThemeChange = (event) => {
    그래서 이 파일에는 단위에 대한 코드가 한 줄도 남지 않았습니다 —
    앱 바에 <UnitToggler /> 를 놓아 준 것이 전부입니다.
 
-   테마(isDark)는 왜 안 옮겼나 — 과제 범위가 아니기도 하고, 이 값은
-   App.vue 의 :class 하나만 쓰는 "이 파일의 상태"라 밖으로 뺄 이유가
-   없습니다. 여러 화면이 공유하는 값만 store 로 갑니다.
+   ── 그럼 테마(isDark)는 왜 안 옮겼나 ─────────────────────
+   store 로 올릴지는 두 가지만 물어보고 정했습니다.
+
+     1) 화면보다 오래 살아야 하는가?
+        테마는 이 파일(App.vue)이 소유하는데, App.vue 는 RouterView 바깥이라
+        주소가 바뀌어도 unmount 되지 않습니다. 이미 화면보다 오래 삽니다.
+
+     2) 트리로 이어지지 않는 두 곳 이상이 쓰는가?
+        읽는 곳이 아래 :class 한 줄뿐입니다. 자식들은 CSS 변수(--fg · --bg)를
+        상속으로 받으므로 지금 어느 테마인지 알 필요조차 없습니다.
+
+   둘 다 아니라 그냥 ref 로 남겼습니다. 전역으로 올리는 순간 "이 값이
+   어디서 바뀌었나" 를 찾을 범위가 앱 전체로 넓어지는데, 그 대가로
+   얻는 것이 없습니다. store 를 쓸 수 있다고 해서 써야 하는 건 아닙니다.
+
+   ⚠️ 이 판단이 뒤집히는 조건도 분명합니다 — 테마 토글을 설정 화면 같은
+      다른 페이지에도 두거나, 고른 테마를 localStorage 에 저장하게 되면
+      그때는 favoriteStore 처럼 값과 저장 코드를 함께 store 로 옮기는 것이
+      맞습니다. (같은 기준을 소개 화면 State 패널에도 적어 두었습니다)
    ──────────────────────────────────────────────── */
 
 /* ────────────────────────────────────────────────
@@ -195,6 +217,22 @@ onBeforeUnmount(() => {
 
            셸 안이되 RouterView 밖이라 모든 페이지에 그대로 남습니다. -->
       <footer class="wx-settings">
+        <!-- [추가] 음악 스위치.
+             조작 줄(WeatherRadio)은 히어로 안에 있어서 대시보드와 상세
+             화면에만 있습니다. 그런데 소리는 소개 화면에서도 계속 나므로,
+             그 화면에서는 끌 방법이 없었습니다.
+
+             여기에 곡 이름이나 이전/다음까지 두지는 않았습니다. 설정줄은
+             "가끔 건드리는 것" 자리라, 필요한 건 끄고 켜는 것 하나입니다.
+             테마 토글과 같은 세그먼트를 써서 새 모양을 만들지 않았습니다. -->
+        <div class="wx-setting">
+          <span class="wx-label wx-setting-label">Radio</span>
+          <div class="wx-segment" role="group" aria-label="음악 재생">
+            <button class="wx-segment-btn" :class="{ 'is-on': radio.isPlaying }" :aria-pressed="radio.isPlaying" @click="radio.request(true)">Play</button>
+            <button class="wx-segment-btn" :class="{ 'is-on': !radio.isPlaying }" :aria-pressed="!radio.isPlaying" @click="radio.request(false)">Pause</button>
+          </div>
+        </div>
+
         <div class="wx-setting">
           <span class="wx-label wx-setting-label">Theme</span>
           <div class="wx-segment" role="group" aria-label="테마">
@@ -380,8 +418,9 @@ onBeforeUnmount(() => {
    위쪽 헤어라인 하나로만 본문과 나눕니다. 패널(BaseDashboardCard)로
    감싸면 대시보드의 상자들과 같은 무게가 되어 "설정이 하나 더 있는 구획"처럼
    보입니다. 여기는 본문이 아니라 여백에 가까운 자리라 선 하나면 충분합니다. */
-/* 지금은 테마 하나뿐이라 오른쪽 끝에 세웁니다. 항목이 늘어나면
-   space-between 으로 바꾸면 됩니다. */
+/* 항목이 둘(Radio · Theme)이 됐지만 여전히 오른쪽에 모읍니다.
+   space-between 으로 벌리면 둘이 양 끝으로 떨어져 "설정 묶음" 이 아니라
+   서로 관계없는 것 둘처럼 보입니다. */
 .wx-settings {
   display: flex;
   flex-wrap: wrap;

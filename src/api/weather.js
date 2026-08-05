@@ -256,11 +256,36 @@ export const fetchAllCities = async () => {
   const ids = Object.keys(CITY_QUERY)
   const results = await Promise.allSettled(ids.map((id) => fetchCityCurrent(id)))
 
-  return results.map((result, index) => {
+  lastAllCities = results.map((result, index) => {
     if (result.status === 'fulfilled') return result.value
 
     const id = ids[index]
     console.error(`🔴 [${id}] 실시간 조회 실패 — 저장된 값으로 대체합니다.`, result.reason?.message ?? result.reason)
     return cities.find((city) => city.id === id)
   })
+
+  return lastAllCities
 }
+
+/* ── 마지막으로 받아 온 목록 ──────────────────────────────
+   [추가] 소개 화면에 갔다가 대시보드로 돌아오면 WeatherHomeView 가 새로
+   mount 됩니다. 그때 화면은 seed(저장된 값)로 먼저 그려지고, 잠시 뒤
+   응답이 와서 다시 실제 값으로 바뀝니다. 눈에 보이는 증상이 둘이었습니다.
+
+     · 기온이 잠깐 옛날 숫자로 깜빡임
+     · 히어로의 날씨가 seed → 실제 로 두 번 바뀌면서, 그 날씨를 따라가는
+       음악이 끊겼다가 다른 곡으로 다시 시작됨
+
+   그래서 마지막 응답을 모듈 안에 기억해 둡니다. 모듈은 화면보다 오래
+   살기 때문에(App 이 켜져 있는 동안 한 번만 평가됨) 돌아왔을 때 seed 가
+   아니라 방금 보던 값으로 시작할 수 있습니다.
+
+   ⚠️ 이것은 store 가 아니라 그냥 모듈 변수입니다. 반응형이 필요 없기
+      때문입니다 — 화면은 mount 될 때 한 번만 이 값을 읽어 자기 ref 에
+      담고, 그 뒤로는 자기 것으로 씁니다. 값이 바뀌었다고 화면이 저절로
+      다시 그려질 필요가 없으면 ref 로 만들 이유도 없습니다.
+      (본격적인 캐시 — 만료 시간, 도시별 공유 — 가 필요해지면 그때
+       store 로 올리는 것이 맞습니다) */
+let lastAllCities = null
+
+export const getCachedCities = () => lastAllCities

@@ -53,6 +53,13 @@ const cityData = ref(null)
    아무것도 없어서(도시 하나를 찾아와야 하므로) 로딩 안내가 필요합니다. */
 const isLoading = ref(false)
 
+/* [추가] 통신 실패 여부.
+
+   실패해도 Mock 으로 화면을 채우기 때문에, 안내가 없으면 사용자는
+   지금 보고 있는 기온이 실시간인 줄 압니다. 목록 화면과 달리 여기에는
+   상태바가 없어서, 아래 히어로 위에 한 줄을 띄웁니다. */
+const hasError = ref(false)
+
 /* 옷차림 패널 펼침 상태. 목록 화면과 같은 구조 — 상태는 부모가 쥐고
    히어로는 신호만 올립니다. 목록에서는 접힌 채로 시작하지만 여기서는
    일부러 상세를 보러 들어온 화면이라 펼친 채로 시작합니다. */
@@ -87,8 +94,9 @@ onMounted(async () => {
     console.log(`🟢 [API] ${id} 실시간 상세 조회 완료`, cityData.value)
   } catch (error) {
     // 통신이 실패해도 화면은 보여 줍니다. Mock 이 최신은 아니지만
-    // "아무것도 없음" 보다는 낫습니다.
+    // "아무것도 없음" 보다는 낫습니다. 대신 그 사실을 화면에 밝힙니다.
     cityData.value = findCityById(id) ?? null
+    hasError.value = true
     console.error(`🔴 [API] ${id} 상세 조회 실패 — Mock 으로 대체합니다.`, error)
   } finally {
     isLoading.value = false
@@ -168,6 +176,15 @@ const goList = () => {
 
     <!-- ══════════ 도시를 찾은 경우 ══════════ -->
     <template v-else-if="cityData">
+      <!-- [추가] 실시간 조회에 실패해 저장된 값을 그리고 있을 때.
+           패널(BaseDashboardCard)로 감싸지 않습니다 — 본문 구획이 아니라
+           "지금 보는 값에 대한 단서" 라, 목록 화면 상태바처럼 한 줄이면
+           충분합니다. 색 대신 밝기로만 구분하는 것도 그쪽과 같습니다. -->
+      <p v-if="hasError" class="wx-detail-notice">
+        <span class="wx-label wx-detail-notice-tag">Offline</span>
+        실시간 조회에 실패해 저장된 데이터를 보여 주고 있습니다.
+      </p>
+
       <!-- 목록에서 쓰던 히어로를 그대로 재사용합니다. 넘기는 props 도 같습니다.
            목록과의 유일한 차이는 showOutfit 초깃값(여기는 펼친 채로 시작) 뿐입니다. -->
       <WeatherHero
@@ -314,6 +331,24 @@ const goList = () => {
 .wx-cell-val i {
   color: var(--dimmer);
   font-style: normal;
+}
+
+/* 통신 실패 안내 — 히어로 위 한 줄.
+   테두리를 두르지 않고 위아래 헤어라인도 쓰지 않습니다. 이 줄은 구획이
+   아니라 주석에 가까워서, 자간 넓은 캡션과 밝기 차이만으로 세웁니다. */
+.wx-detail-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 0;
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 14px;
+}
+
+.wx-detail-notice-tag {
+  margin: 0 10px 0 0;
+  color: var(--fg);
 }
 
 /* 없는 도시 안내 */

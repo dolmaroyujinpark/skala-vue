@@ -16,6 +16,16 @@ import { getPlaylist, toMoodKey } from '@/data/weatherPlaylists'
      radioStore   화면이 바뀌어도 끊기면 안 되는 것 (재생)
    같은 이유로 store 에 온 두 번째 값입니다.
 
+   ── store 로 올린 판단 ───────────────────────────────────
+   두 질문 중 하나라도 '예' 여야 store 로 갑니다. (둘 다 아니면 그냥 ref)
+
+     1) 화면보다 오래 살아야 하는가?
+        예 — 도시 상세로 넘어가도 음악이 끊기면 안 됩니다.
+
+     2) 트리로 이어지지 않는 두 곳 이상이 쓰는가?
+        예 — 소리를 내는 RadioEngine(앱 셸)과 누르는 WeatherRadio(히어로 안)는
+        부모-자식이 아니라 형제라 props/emit 으로는 이을 방법이 없습니다.
+
    ── 이 store 는 소리를 내지 않습니다 ─────────────────────
    YouTube 를 직접 부르는 코드는 여기 없습니다. store 는 "무엇을 틀고
    싶은가"만 들고 있고, 실제 iframe 조작은 RadioEngine.vue 가 합니다.

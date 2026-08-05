@@ -70,14 +70,55 @@ const requiredWork = [
   { id: 'reactive', label: 'Reactivity', text: '검색 · 정렬 결과는 computed 로 파생시키고, 상태 변화는 watch · watchEffect 로 감시합니다.' },
   { id: 'router', label: 'Router', text: '대시보드 · 소개 · 도시 상세 · 404 네 화면. 상세는 /weather/:cityId 동적 경로입니다.' },
   { id: 'axios', label: 'Axios', text: 'OpenWeatherMap 을 axios 로 호출합니다. 통신 코드는 api/weather.js 한 곳에만 있습니다.' },
-  { id: 'store', label: 'Pinia', text: '℃ / ℉ 단위를 configStore 에 두어, 화면을 옮겨도 설정이 초기화되지 않습니다.' },
+  { id: 'store', label: 'Pinia', text: '℃ / ℉ 단위 · 즐겨찾기 · 음악 재생을 전역 상태로 뒀습니다. state · getters · actions 세 칸을 나눠 적었습니다. 아래 State 패널에 무엇을 왜 store 에 뒀는지 적어 두었습니다.' },
 ]
 
 const extraWork = [
-  { id: 'favorite', label: '즐겨찾기 · 정렬', text: '별을 누르면 목록 맨 앞으로 올라오고, 새로고침해도 남습니다 (localStorage).' },
+  { id: 'favorite', label: '즐겨찾기 · 정렬', text: '별을 누른 순서가 곧 목록 순서입니다. 가장 최근에 담은 도시가 맨 앞이고, 앱을 켜면 그 도시부터 보여 줍니다. 새로고침해도 남습니다 (localStorage).' },
   { id: 'outfit', label: '옷차림 추천', text: '기상청 생활기상지수 구간을 그대로 옮겨, 기온에서 옷차림을 파생시킵니다.' },
   { id: 'radio', label: '날씨 라디오', text: '하늘 여섯 갈래마다 플레이리스트를 걸어 두고 YouTube 로 재생합니다.' },
   { id: 'shell', label: '스플래시 · 테마', text: '웹폰트가 준비될 때까지 스플래시로 덮고, 다크 / 라이트는 OS 설정을 따라갑니다.' },
+]
+
+/* ────────────────────────────────────────────────
+   어떤 값을 어디에 두었나
+
+   store 로 올릴지 화면에 둘지는 취향이 아니라 두 가지 질문으로 정했습니다.
+   화면보다 오래 살아야 하는가, 트리로 이어지지 않는 두 곳 이상이 쓰는가.
+   둘 다 아니면 그냥 ref 입니다 — 전역으로 올리는 순간 "이 값이 어디서
+   바뀌었나" 를 찾을 범위가 앱 전체로 넓어집니다.
+   ──────────────────────────────────────────────── */
+const stateNotes = [
+  {
+    id: 'unit',
+    name: '℃ / ℉ 단위',
+    place: 'configStore',
+    why: '앱 바 · 히어로 · 카드 · 상세 네 곳이 씁니다. 앱 바와 카드는 조상-후손 관계가 아니라 props 로는 이어지지 않습니다.',
+  },
+  {
+    id: 'favorite',
+    name: '즐겨찾기 목록',
+    place: 'favoriteStore',
+    why: '새로고침해도 남아야 해서 localStorage 와 짝을 이룹니다. 저장하는 watch 를 화면에 두면 그 화면이 떠 있는 동안에만 저장됩니다.',
+  },
+  {
+    id: 'radio',
+    name: '음악 재생 상태',
+    place: 'radioStore',
+    why: '소리를 내는 재생기는 앱 셸에, 누르는 버튼은 히어로 안에 있습니다. 둘은 부모-자식이 아니라 형제라 props 로 이을 방법이 없습니다.',
+  },
+  {
+    id: 'theme',
+    name: '다크 / 라이트',
+    place: 'App.vue 의 ref',
+    why: '값을 읽는 곳이 App.vue 한 곳뿐입니다. 자식들은 CSS 변수를 상속으로 받으므로 지금 어느 테마인지 알 필요가 없습니다. store 로 올려도 얻는 것이 없습니다.',
+  },
+  {
+    id: 'screen',
+    name: '검색어 · 정렬 · 선택된 도시',
+    place: 'WeatherHomeView 의 ref',
+    why: '화면을 떠나면 사라지는 것이 맞는 값들입니다. 소개 화면에 갔다 돌아왔는데 검색어가 남아 있으면 오히려 이상합니다.',
+  },
 ]
 
 /* 3일차에 새로 붙은 것들 */
@@ -144,6 +185,43 @@ const routerNotes = [
           </dl>
         </section>
       </div>
+    </BaseDashboardCard>
+
+    <!-- ── [추가] 상태를 어디에 두었나 ──
+         평가자가 가장 먼저 확인할 대목이라 표로 폅니다.
+         "store 를 썼다" 보다 "왜 이건 store 고 저건 아닌가" 가 답이라고 봤습니다. -->
+    <BaseDashboardCard tag="section">
+      <template #header>
+        <p class="wx-label">State</p>
+      </template>
+
+      <p class="wx-about-lead">
+        Pinia 로 올릴지 화면에 둘지는 두 가지만 물어보고 정했습니다. <strong>화면보다 오래 살아야 하는가</strong>, <strong>트리로 이어지지 않는 두 곳 이상이 쓰는가</strong>. 둘 다 아니면 그냥 ref 로 남겼습니다 — 전역으로 올리는 순간 "이 값이 어디서 바뀌었나" 를 찾을 범위가 앱 전체로 넓어집니다.
+      </p>
+
+      <dl class="wx-about-states">
+        <div v-for="note in stateNotes" :key="note.id" class="wx-about-state">
+          <dt class="wx-about-state-head">
+            <span class="wx-about-state-name">{{ note.name }}</span>
+            <span class="wx-about-state-place">{{ note.place }}</span>
+          </dt>
+          <dd class="wx-about-state-why">{{ note.why }}</dd>
+        </div>
+      </dl>
+
+      <p class="wx-about-lead wx-about-states-note">
+        store 가 셋이지만 파일 개수는 비용이 아닙니다. 비용은 <strong>전역이 된 값의 개수</strong>입니다 — 전역 값은 어디서든 바꿀 수 있어서 "왜 이렇게 됐지" 를 추적할 범위가 앱 전체로 넓어집니다. 그래서 하나의 큰 store 에 몰아넣는 쪽이 오히려 나쁩니다. 음악을 고치려고 단위 로직이 든 파일을 열게 되니까요.
+      </p>
+      <p class="wx-about-lead">
+        한때 대표 도시를 지정하는 <code>pinStore</code> 가 넷째로 있었습니다. 즐겨찾기 순서가 같은 일을 더 잘하게 되자 — 최근에 담은 도시가 맨 앞이고 그게 곧 대표입니다 — 존재 이유가 사라져 걷어냈습니다. 기준은 만들 때만 쓰는 것이 아니라 지울 때도 씁니다.
+      </p>
+
+      <p class="wx-about-foot-note">
+        <span class="wx-about-note-tag">다음이라면</span>
+        <span>
+          날씨 응답 캐시가 store 로 갈 만합니다. 지금은 마지막 응답을 <code>api/weather.js</code> 의 모듈 변수 하나로 기억해 둡니다 — 소개 화면에 갔다 돌아왔을 때 저장된 값으로 되돌아가지 않게 하는 용도라 반응형이 필요 없었습니다. 만료 시간이나 도시별 공유가 필요해지면 그때는 store 가 맞습니다.
+        </span>
+      </p>
     </BaseDashboardCard>
 
     <!-- ── 무엇으로 만들어졌나 ── -->
@@ -374,6 +452,49 @@ const routerNotes = [
   color: var(--dim);
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* store 개수에 대한 메모는 표 아래에 붙습니다. 표에서 한 번 끊고
+   읽히도록 위쪽 여백을 조금 더 줍니다. */
+.wx-about-states-note {
+  margin-top: 26px;
+}
+
+/* ── 상태를 어디에 두었나 ────────────────────────────────
+   한 줄에 값 이름 + 자리, 그 아래 이유. 자리(configStore …)를 오른쪽
+   끝으로 밀어 두면 세로로 훑을 때 "store / ref" 가 한눈에 갈립니다. */
+.wx-about-states {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 22px 0 0;
+}
+
+.wx-about-state-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.wx-about-state-name {
+  font-size: 15px;
+}
+
+/* 파일 이름이라 코드 말투 — 캡션과 같은 크기지만 자간은 넓히지 않습니다.
+   configStore 같은 낱말은 자간을 벌리면 오히려 읽기 어렵습니다. */
+.wx-about-state-place {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wx-about-state-why {
+  margin: 4px 0 0;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.65;
 }
 
 /* ── 날씨별 플레이리스트 ─────────────────────────────────

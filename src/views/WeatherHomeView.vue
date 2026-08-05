@@ -12,7 +12,8 @@ let hasFocusedOnce = false
 import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/configStore'
-import { fetchAllCities, fetchCityWeather } from '@/api/weather'
+import { useFavoriteStore } from '@/stores/favoriteStore'
+import { fetchAllCities, fetchCityWeather, getCachedCities } from '@/api/weather'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)
 import BaseDashboardCard from '@/components/mine/weather/BaseDashboardCard.vue'
@@ -80,22 +81,70 @@ const configStore = useConfigStore()
    Mock 을 깔아 두면 응답이 오기 전 잠깐도 정상적인 화면이 보이고,
    API 가 실패해도 빈 화면 대신 무언가는 남습니다.
 
-   [...스프레드]로 복사해서 ref 에 담는 이유 — 아래 removeCity 가
-   목록에서 도시를 지웁니다. 원본 배열을 그대로 넘기면 이 화면에서
-   지운 도시가 import 한 모듈에서도 사라져, 상세 페이지가 "없는 도시"가
-   됩니다. 원본은 원본대로 두고, 화면은 자기 복사본 위에서 움직입니다.
+   [...스프레드]로 복사해서 ref 에 담는 이유 — 이 배열은 API 응답으로
+   통째로 갈아끼워지고 정렬로도 계속 다시 만들어집니다. 원본(cities)을
+   그대로 넘기면 화면에서 벌어진 일이 import 한 모듈에까지 번져,
+   같은 배열을 보는 상세 페이지가 영향을 받습니다.
+   원본은 원본대로 두고, 화면은 자기 복사본 위에서 움직입니다.
    ──────────────────────────────────────────────── */
-const weatherList = ref([...cities])
+/* [추가] 이 화면에 다시 들어온 것이라면 방금 보던 실시간 값으로 시작합니다.
+   seed 로 되돌아갔다가 응답이 와서 다시 바뀌면, 기온이 깜빡이고 그
+   날씨를 따라가는 음악까지 끊깁니다. (api/weather.js 의 lastAllCities 주석 참고) */
+const weatherList = ref(getCachedCities() ?? [...cities])
 
 /* [4일차 추가] 통신 중 여부. 상태바 문구를 바꾸는 데 씁니다.
    버튼을 잠그거나 스피너를 띄우지 않는 이유 — Mock 이 이미 깔려 있어
    화면이 비어 보이지 않고, 응답이 1초 안쪽이라 스피너가 깜빡이기만 합니다. */
 const isLoading = ref(false)
 
+/* [추가] 통신 실패 여부.
+
+   전에는 실패해도 selectedCityInfo(안내 문구)에 문장 하나를 덮어쓰는 게
+   전부였습니다. 그러면 그 다음에 도시를 한 번 누르는 순간 "서울이
+   선택되었습니다" 로 덮여서, 지금 보고 있는 숫자가 실시간인지 저장된
+   값인지 알 수 없게 됩니다.
+
+   실패는 문구가 아니라 상태입니다. 따로 들고 있어야 "다시 성공할 때까지"
+   계속 표시할 수 있습니다. 문자열이 아니라 boolean 인 이유는 화면에
+   보여 줄 문장이 한 종류뿐이기 때문입니다 — 나중에 사유별로 다르게
+   안내하고 싶어지면 그때 메시지를 담으면 됩니다. */
+const hasError = ref(false)
+
+/* ────────────────────────────────────────────────
+   [2일차 추가 → store 로 이사] 즐겨찾기
+
+   이 화면이 ref 로 들고 있던 값입니다. localStorage 읽기·쓰기와
+   추가/해제 로직까지 전부 stores/favoriteStore.js 로 옮겼습니다.
+
+   옮긴 이유 — 즐겨찾기는 "이 화면의 사정"이 아니라 앱 전체가 공유하는
+   설정에 가깝습니다. 새로고침해도 남아야 하고, 나중에 상세 화면에서도
+   별을 누를 수 있어야 합니다. 화면이 소유하면 그 화면을 떠날 때 같이
+   사라지고, 화면마다 같은 저장 코드를 다시 적어야 합니다.
+
+   여기 남은 것은 "그 값을 화면에 어떻게 쓸지" 뿐입니다.
+   (configStore · radioStore 와 같은 방식)
+   ──────────────────────────────────────────────── */
+const favoriteStore = useFavoriteStore()
+
+// 이 도시가 즐겨찾기인지. store 의 getter 를 그대로 씁니다.
+// 이 파일 안에서 부르는 곳이 네 군데라, 매번 favoriteStore.isFavorite(...) 로
+// 길게 쓰는 대신 이름을 짧게 빌려 둡니다.
+const isFavorite = (cityId) => favoriteStore.isFavorite(cityId)
+
 /* ────────────────────────────────────────────────
    [2일차 요구사항 1] 반응형 상태 관리
    ──────────────────────────────────────────────── */
-const selectedId = ref('city_01') // 히어로에 띄울 도시
+/* 히어로에 띄울 도시.
+
+   [추가] 가장 최근에 즐겨찾기한 도시로 시작합니다. 즐겨찾기 목록의
+   첫 칸이 곧 대표 도시라는 규칙(favoriteStore 주석 참고)을 화면에서
+   지키는 자리입니다. 즐겨찾기가 하나도 없으면 예전처럼 첫 도시(서울).
+
+   ⚠️ 그래서 favoriteStore 를 바로 위에서 선언합니다. const 는 선언 줄에
+      닿기 전에는 읽을 수 없어서(TDZ), 아래에 두면 setup 이 시작하자마자
+      ReferenceError 로 화면이 통째로 안 그려집니다.
+      빌드는 통과하므로 실행해 봐야 드러납니다. */
+const selectedId = ref(favoriteStore.topFavoriteId ?? 'city_01')
 
 // [2일차 요구사항 1] 검색어
 // [2일차 컴포넌트 요구사항 3] 이 값이 SearchBar 로 내려가고(props), 타이핑은 emit 으로 되돌아옵니다.
@@ -118,29 +167,6 @@ const showOutfit = ref(true)
    문자열 하나만 바꾸면 아래 sortedWeatherList 가 알아서 다시 정렬됩니다.
    ──────────────────────────────────────────────── */
 const sortBy = ref('name')
-
-/* ────────────────────────────────────────────────
-   [2일차 추가] 즐겨찾기 도시 id 목록
-   새로고침해도 남아야 하는 값이라 localStorage 에서 초깃값을 읽어 옵니다.
-   JSON.parse 는 저장된 문자열이 깨져 있으면 예외를 던지므로 try 로 감쌌습니다.
-   (사용자가 개발자도구로 값을 건드렸을 때 앱 전체가 죽는 걸 막습니다)
-   ──────────────────────────────────────────────── */
-const FAVORITE_STORAGE_KEY = 'wx-favorite-cities'
-
-const loadFavorites = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FAVORITE_STORAGE_KEY))
-    return Array.isArray(saved) ? saved : []
-  } catch {
-    return []
-  }
-}
-
-const favoriteIds = ref(loadFavorites())
-
-// 이 도시가 즐겨찾기인지. computed 가 아니라 함수인 이유:
-// computed 는 인자를 못 받습니다. "도시별"로 달라지는 값은 함수로 두는 게 맞습니다.
-const isFavorite = (cityId) => favoriteIds.value.includes(cityId)
 
 // 더움 / 선선함을 가르는 기준 온도 (과제 스펙: 25도)
 const HOT_TEMP = 25
@@ -206,6 +232,9 @@ const FOCUS_MIN_WIDTH = 861
    ──────────────────────────────────────────────── */
 const loadRealTimeWeather = async () => {
   isLoading.value = true
+  // 재시도일 수 있으므로 지난 실패 표시를 먼저 지웁니다.
+  // 안 지우면 이번에 성공해도 "저장된 데이터" 안내가 남습니다.
+  hasError.value = false
 
   try {
     // fetchAllCities 는 도시별로 실패를 흡수하므로, 여기까지 예외가
@@ -224,7 +253,8 @@ const loadRealTimeWeather = async () => {
     loadForecastFor(selectedId.value)
   } catch (error) {
     // Mock 이 이미 화면에 있으므로 사용자는 빈 화면을 보지 않습니다.
-    selectedCityInfo.value = '실시간 조회에 실패해 저장된 데이터를 표시합니다.'
+    // 다만 "보이는 숫자가 실시간이 아니다" 는 사실은 알려야 합니다.
+    hasError.value = true
     console.error('🔴 [API] 실시간 기상 데이터 조회 실패', error)
   } finally {
     isLoading.value = false
@@ -401,7 +431,28 @@ const sortedWeatherList = computed(() => {
      스크롤하지 않아도 즐겨찾기는 항상 맨 위에 보입니다.
 
      Boolean 끼리 빼면 true 는 1, false 는 0 이라 b - a 가 "true 를 앞으로" 입니다. */
-  return list.sort((a, b) => isFavorite(b.id) - isFavorite(a.id) || byChosenOrder(a, b))
+  /* [변경] 즐겨찾기끼리는 "최근에 담은 것" 이 위입니다.
+
+     전에는 즐겨찾기를 한 덩어리로 올려놓고 그 안에서 이름순으로 다시
+     정렬했습니다. 그러면 사용자가 순서를 정할 방법이 없어서, 대표 도시를
+     지정하는 핀을 따로 만들어야 했습니다.
+     이제는 별을 껐다 켜는 것만으로 그 도시가 맨 앞으로 옵니다 —
+     카톡 즐겨찾기와 같은 감각입니다. 그래서 핀을 걷어냈습니다.
+
+     favoriteRank 는 즐겨찾기가 아닌 도시에 Infinity 를 돌려줍니다.
+     그래서 즐겨찾기가 통째로 위로 올라가는 것까지 이 한 줄이 함께 처리합니다.
+
+     ⚠️ ra - rb 로 빼지 않는 이유 — 둘 다 즐겨찾기가 아니면
+        Infinity - Infinity = NaN 이 되고, 정렬 순서가 뒤죽박죽이 됩니다. */
+  const rank = (cityId) => favoriteStore.favoriteRank(cityId)
+
+  return list.sort((a, b) => {
+    const rankA = rank(a.id)
+    const rankB = rank(b.id)
+
+    if (rankA !== rankB) return rankA < rankB ? -1 : 1
+    return byChosenOrder(a, b)
+  })
 })
 
 // 화면에 그릴 카드 목록 — 정렬된 목록 위에 단위 환산과 즐겨찾기 여부를 얹은 computed.
@@ -424,8 +475,8 @@ onBeforeUnmount(() => {
   cardObserver = null
 })
 
-// [2일차 추가] 즐겨찾기 개수 — 목록이 바뀔 때만 다시 셉니다.
-const favoriteCount = computed(() => favoriteIds.value.length)
+// [2일차 추가 → store] 즐겨찾기 개수. 세는 일은 store 의 getter 가 합니다.
+const favoriteCount = computed(() => favoriteStore.favoriteCount)
 
 // [2일차 추가] 검색 결과 개수. 화면에 "7개 중 3개" 로 보여 줍니다.
 const filteredCount = computed(() => filteredWeatherList.value.length)
@@ -489,19 +540,9 @@ watch(sortBy, (newSort, oldSort) => {
   console.log(`🔀 [watch] 정렬 기준 변경: ${SORT_LABEL[oldSort]} -> ${SORT_LABEL[newSort]}`)
 })
 
-/* [2일차 추가] 즐겨찾기 목록이 바뀔 때마다 localStorage 에 저장합니다.
-   deep: true 가 필요한 이유 — favoriteIds 는 배열이라, push/splice 로 안을 고치면
-   ref 가 가리키는 배열 "주소"는 그대로입니다. 얕은 감시로는 변화를 못 잡습니다.
-   (아래 toggleFavorite 은 새 배열을 만들어 대입하므로 사실 deep 없이도 잡히지만,
-    나중에 push 로 바꿔 쓰더라도 저장이 조용히 멈추지 않도록 켜 두었습니다) */
-watch(
-  favoriteIds,
-  (ids) => {
-    localStorage.setItem(FAVORITE_STORAGE_KEY, JSON.stringify(ids))
-    console.log(`⭐ [watch] 즐겨찾기 ${ids.length}개 저장됨 →`, ids)
-  },
-  { deep: true },
-)
+/* [2일차 추가 → store 로 이사] 즐겨찾기 저장 watch 가 여기 있었습니다.
+   화면에 두면 "이 화면이 떠 있는 동안에만" 저장됩니다. 저장은 값의 사정이지
+   화면의 사정이 아니라서, 값과 함께 favoriteStore 안으로 옮겼습니다. */
 
 /* ────────────────────────────────────────────────
    동작 — 자식이 올려보낸 이벤트를 받아 상태를 바꾸는 곳
@@ -548,23 +589,6 @@ const showDetail = (city) => {
   router.push(`/weather/${city.id}`)
 }
 
-// :key 를 index 가 아닌 id 로 잡아야 하는 이유를 눈으로 확인하려고 넣은 삭제 버튼.
-const removeCity = (city) => {
-  if (weatherList.value.length === 1) {
-    selectedCityInfo.value = 'At least one city must remain.'
-    return
-  }
-  weatherList.value = weatherList.value.filter((c) => c.id !== city.id)
-
-  // 즐겨찾기 목록에서도 같이 지웁니다.
-  // 안 지우면 화면에 없는 도시의 id 가 favoriteIds 에 남아, 별이 붙은 카드는
-  // 하나도 없는데 "즐겨찾기 1" 로 표시됩니다. 게다가 아래 watch 가 그 상태를
-  // localStorage 에 저장해 새로고침해도 숫자가 계속 어긋납니다.
-  favoriteIds.value = favoriteIds.value.filter((id) => id !== city.id)
-
-  selectedCityInfo.value = `Removed ${city.name}.`
-}
-
 // [요구사항 3] SearchBar 의 update-query 수신.
 // 자식은 props(currentQuery)를 직접 못 바꾸므로, 값을 실어 올려보내면 부모가 대신 대입합니다.
 // 이것이 v-model 이 내부에서 하는 일과 정확히 같습니다.
@@ -572,13 +596,26 @@ const onUpdateQuery = (value) => {
   searchQuery.value = value
 }
 
-/* [2일차 추가] WeatherCard 의 toggle-favorite 수신.
-   filter / concat 으로 매번 새 배열을 만들어 대입합니다. push/splice 로 원본을
-   고치는 것보다 코드가 길지만, "이전 목록"과 "새 목록"이 다른 객체라
-   watch 가 확실히 잡고 되돌리기(undo) 같은 걸 붙이기도 쉽습니다. */
+/* [2일차 추가 → store] WeatherCard 의 toggle-favorite 수신.
+
+   목록을 고치는 일은 store 의 action 이 하고, 이 화면은 그 결과로
+   상태바 문구만 정합니다. 화면이 하는 일과 값이 하는 일을 나눈 것입니다.
+
+   action 이 돌려주는 boolean 을 쓰는 이유 — 바꾼 뒤에 isFavorite 을
+   다시 물어봐도 되지만, 그러면 "바꾸기"와 "확인하기" 사이에 순서 의존이
+   생깁니다. 바꾼 쪽이 결과를 알려 주면 그 틈이 없습니다. */
 const toggleFavorite = (city) => {
-  favoriteIds.value = isFavorite(city.id) ? favoriteIds.value.filter((id) => id !== city.id) : [...favoriteIds.value, city.id]
-  selectedCityInfo.value = isFavorite(city.id) ? `${withParticle(city.name)} 즐겨찾기에 추가되었습니다.` : `${city.name} 즐겨찾기가 해제되었습니다.`
+  const added = favoriteStore.toggleFavorite(city.id)
+
+  if (!added) {
+    selectedCityInfo.value = `${city.name} 즐겨찾기가 해제되었습니다.`
+    return
+  }
+
+  /* 방금 담은 도시는 목록 맨 앞이자 대표 도시입니다.
+     별 아이콘은 켜짐/꺼짐만 보여 주므로 "왜 이게 제일 위지" 를 화면에서
+     읽을 수 없습니다. 아이콘을 하나 더 만드는 대신 여기서 말로 알립니다. */
+  selectedCityInfo.value = `${withParticle(city.name)} 맨 앞에 놓였습니다. 앱을 켜면 여기부터 보여 드릴게요.`
 }
 </script>
 
@@ -672,7 +709,7 @@ const toggleFavorite = (city) => {
         <!-- [3일차 변경] @click-detail 이 이제 도시 객체를 통째로 받습니다.
              2일차에는 (이름, 상태) 두 개를 받아 alert 문장을 만들었지만,
              라우터로 보내려면 필요한 건 id 입니다. 다른 이벤트들(select-card ·
-             remove-card · toggle-favorite)이 전부 cityItem 을 올려보내고 있어서,
+             toggle-favorite)이 전부 cityItem 을 올려보내고 있어서,
              거기에 맞춰 WeatherCard 쪽 emit 도 통일했습니다. -->
         <WeatherCard
           v-for="city in displayWeatherList"
@@ -683,7 +720,6 @@ const toggleFavorite = (city) => {
           :hot-temp="HOT_TEMP"
           @select-card="selectCity"
           @click-detail="showDetail"
-          @remove-card="removeCity"
           @toggle-favorite="toggleFavorite"
         />
       </div>
@@ -695,11 +731,31 @@ const toggleFavorite = (city) => {
     <!-- [1일차 요구사항 4] 상태바 — 자식이 올려보낸 이벤트의 최종 결과가 여기 찍힙니다.
          [3일차] 앱 바와 달리 이건 "이 화면에서 무슨 일이 있었는지"를 적는 자리라
          App.vue 로 올리지 않고 여기 남겼습니다. /about 에 상태바가 있으면 이상합니다. -->
-    <footer class="wx-statusbar">
+    <!-- [추가] 실패했을 때는 테두리를 밝혀 상태바 자체를 눈에 띄게 합니다.
+         색을 새로 들이지 않고 밝기만 바꾸는 것은 이 앱의 규칙입니다 —
+         선택된 카드(.is-active)와 HOT 배지가 쓰는 것과 같은 방식입니다. -->
+    <footer class="wx-statusbar" :class="{ 'is-error': hasError }">
       <PixelIcon :name="current.icon" :size="18" />
-      <!-- [4일차] 통신 중에는 그 사실을 먼저 알립니다.
-           문구만 바꾸고 자리는 그대로라 레이아웃이 흔들리지 않습니다. -->
-      <p>{{ isLoading ? '실시간 관측 데이터를 불러오는 중…' : selectedCityInfo }}</p>
+
+      <!-- 세 가지 상태를 한 자리에서 보여 줍니다. 문구만 바뀌고 자리는
+           그대로라 레이아웃이 흔들리지 않습니다.
+             통신 중  → 그 사실을 먼저
+             실패     → 지금 보이는 값이 실시간이 아님을 계속 알림
+             그 외    → 방금 무슨 일이 있었는지 (도시 선택 · 즐겨찾기 …) -->
+      <p v-if="isLoading">실시간 관측 데이터를 불러오는 중…</p>
+      <p v-else-if="hasError">
+        <span class="wx-status-tag">Offline</span>
+        실시간 조회에 실패해 저장된 데이터를 보여 주고 있습니다.
+      </p>
+      <p v-else>{{ selectedCityInfo }}</p>
+
+      <!-- 실패 상태에서 빠져나갈 길.
+
+           이게 없으면 상태바가 실패 문구에 갇힙니다 — 도시를 눌러도
+           즐겨찾기를 해도 안내가 안 보이고(위 v-else 가 막히므로),
+           새로고침 말고는 되돌릴 방법이 없습니다.
+           성공하면 hasError 가 꺼지면서 원래 안내로 돌아옵니다. -->
+      <button v-if="hasError" class="wx-status-retry" @click="loadRealTimeWeather">다시 시도</button>
     </footer>
   </div>
 </template>
@@ -968,6 +1024,46 @@ const toggleFavorite = (city) => {
 
 .wx-statusbar p {
   margin: 0;
+}
+
+/* 통신 실패 — 테두리와 글자를 한 단계 밝힙니다.
+   빨간색을 쓰지 않는 이유: 이 앱에는 색이 없습니다. 흑백 두 벌뿐이라
+   경고색을 하나 들이면 그 순간 화면 전체의 규칙이 깨집니다.
+   그리고 이건 "고장" 이 아니라 "지금 값이 조금 오래됐다" 는 안내입니다. */
+.wx-statusbar.is-error {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+/* 다시 시도 — 히어로의 Outfit 버튼과 같은 말투(테두리도 배경도 없이
+   색으로만). margin-left: auto 로 상태바 오른쪽 끝에 붙습니다. */
+.wx-status-retry {
+  flex: none;
+  margin-left: auto;
+  padding: 4px 2px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.wx-status-retry:hover {
+  color: var(--fg);
+}
+
+/* 문장 앞 이름표. 앱 전체의 캡션(.wx-label)과 같은 말투 —
+   대문자 · 작게 · 자간 넓게. 테두리는 두르지 않습니다. */
+.wx-status-tag {
+  margin-right: 8px;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 /* ── [7] 좁은 화면 보정 ───────────────────────────────────── */
