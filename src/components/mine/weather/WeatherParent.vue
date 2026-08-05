@@ -1,4 +1,15 @@
 <script setup>
+/* ⚠️ 2일차 과제 원본입니다. 지금은 아무 곳에서도 import 하지 않습니다.
+      3일차에 Vue Router 를 붙이면서, 이 파일이 하던 두 가지 일이
+      각각 다른 파일로 갈라졌습니다.
+
+        앱 껍데기(스플래시 · 테마 · 앱 바 · 단위 토글)  →  App.vue
+        대시보드 화면(히어로 · 예보 · 검색 · 카드)      →  views/WeatherHomeView.vue
+
+      대체되었지만 지우지 않은 이유 — 과제가 "WeatherParent 를 대체하라"
+      였기 때문에, 무엇이 무엇으로 대체되었는지 나란히 볼 수 있어야
+      한다고 판단했습니다. 실행에는 관여하지 않으며, import 되지 않으므로
+      빌드 산출물에도 포함되지 않습니다. */
 import { ref, computed, watch, watchEffect, provide, readonly, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 // 컴포넌트 파일을 가져올 때는 파스칼 케이스(PascalCase)

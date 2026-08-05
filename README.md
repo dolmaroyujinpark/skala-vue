@@ -131,7 +131,9 @@ VITE_OWM_API_KEY=발급받은_키
 
 ## V. 화면 (Screenshots) 📸
 
-_(대시보드 · 상세 화면 캡처를 넣습니다)_
+| 대시보드 `/` | 도시 상세 `/weather/:cityId` |
+|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="380"> | <img src="docs/screenshots/detail.png" width="380"> |
 
 <br><br>
 
